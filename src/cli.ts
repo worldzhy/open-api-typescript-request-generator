@@ -84,7 +84,7 @@ export async function genConfig() {
 
   await fs.outputFile(
     configTSFile,
-    formatContent(dedent`
+    await formatContent(dedent`
       import { defineConfig } from 'open-api-typescript-request-generator'
 
       export default defineConfig([{

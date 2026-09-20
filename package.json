@@ -2,15 +2,15 @@
   "name": "open-api-typescript-request-generator",
   "version": "0.0.4",
   "author": "zimv <zimudashiren@163.com>",
-  "main": "./lib/index.js",
-  "module": "./es/index.js",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.mjs",
+  "types": "./dist/cjs/index.d.ts",
   "bin": {
     "apits-gener": "./bin/apits-gener"
   },
   "files": [
     "bin",
-    "lib",
-    "es"
+    "dist"
   ],
   "scripts": {
     "build": "father build",
@@ -20,7 +20,7 @@
     "publishOnly": "npm run build",
     "release": "npm run build && standard-version && git push --follow-tags origin master && npm publish",
     "requestTest": "tsx watch test/requestTest.ts --type-check false",
-    "test": "tsx watch test/index.ts --type-check false",
+    "test": "tsx test/index.ts",
     "test2": "tsx watch test/json-schema-to-typescript.ts --type-check false"
   },
   "lint-staged": {
@@ -34,8 +34,8 @@
     "not dead"
   ],
   "dependencies": {
-    "@babel/runtime": "^7.13.10",
-    "change-case": "^3.0.2",
+    "@babel/runtime": "^7.29.7",
+    "change-case": "^3.1.0",
     "consola": "^2.3.0",
     "dayjs": "^1.8.32",
     "download-git-repo": "^3.0.2",
@@ -49,15 +49,14 @@
     "json5": "^2.1.0",
     "mockjs": "^1.0.1-beta3",
     "ora": "5.4.1",
-    "prettier": "^2.2.1",
+    "prettier": "^3",
     "prompts": "^2.0.4",
     "rimraf": "^3.0.2",
     "signal-exit": "^3.0.3",
     "swagger-client": "3.35.6",
     "to-json-schema": "^0.2.5",
-    "ts-node": "^8.0.2",
     "tsx": "^4.20.5",
-    "typescript": "^4.2.3",
+    "typescript": "^5",
     "vtils": "^4.33.0",
     "yargs": "^16.2.0",
     "yargs-parser": "^20.2.7"
@@ -86,7 +85,7 @@
     "dumi": "^1.1.10",
     "eslint": "^7.16.0",
     "eslint-config-airbnb-base": "^15.0.0",
-    "father": "^2.30.5",
+    "father": "^4",
     "gh-pages": "^2.0.1",
     "husky": "^4.3.6",
     "jest": "^26",

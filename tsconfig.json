@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
-    "allowJs": true,
     "baseUrl": "./",
-    "rootDir": "./",
+    "rootDir": "./src",
     "strict": false,
     "target": "ES5",
     "module": "CommonJS",
@@ -16,7 +15,6 @@
     "skipLibCheck": true,
     "jsx": "preserve",
     "lib": ["ESNext", "DOM"],
-    "suppressImplicitAnyIndexErrors": true,
     "plugins": [
       {
         "name": "typescript-snapshots-plugin",
@@ -24,5 +22,6 @@
       }
     ]
   },
-  "exclude": ["src/api"]
+  "include": ["src"],
+  "exclude": ["src/api", "dist", "node_modules"]
 }

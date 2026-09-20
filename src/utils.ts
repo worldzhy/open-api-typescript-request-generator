@@ -1,5 +1,4 @@
 import JSON5 from 'json5';
-import { upperFirst } from 'lodash';
 import Mock from 'mockjs';
 import path from 'path';
 import toJsonSchema from 'to-json-schema';
@@ -7,7 +6,7 @@ import { castArray, forOwn, isArray, isEmpty, isObject } from 'vtils';
 import { compile, Options } from 'json-schema-to-typescript';
 import { Defined } from 'vtils/types';
 import { FileData } from './helpers';
-import prettier from 'prettier';
+import { format as prettierFormat, type Options as PrettierOptions } from 'prettier';
 import {
   Interface,
   PropDefinition,
@@ -19,6 +18,20 @@ import {
   Config
 } from './types';
 import { JSONSchema4, JSONSchema4TypeName } from 'json-schema';
+
+/**
+ * Uppercase the first character of a string, leaving the rest untouched.
+ * Local replacement for lodash's `upperFirst`: lodash is not declared in
+ * package.json dependencies (it was only available via dependency
+ * hoisting), and the hoisted @types/lodash is incomplete, which broke
+ * declaration generation on the TypeScript 5 toolchain.
+ *
+ * @param value input string
+ * @returns string with its first character uppercased
+ */
+function upperFirst(value: string): string {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
 
 /**
  * 抛出错误。
@@ -60,8 +73,6 @@ export function getNormalizedRelativePath(from: string, to: string) {
  * @returns 处理后的 JSONSchema
  */
 export function processJsonSchema<T extends JSONSchema4>(jsonSchema: T): T {
-  return jsonSchema;
-  /* istanbul ignore if */
   if (!isObject(jsonSchema)) return jsonSchema;
 
   // 去除 title 和 id，防止 json-schema-to-typescript 提取它们作为接口名
@@ -81,6 +92,31 @@ export function processJsonSchema<T extends JSONSchema4>(jsonSchema: T): T {
 
   // 删除 default，防止 json-schema-to-typescript 根据它推测类型
   delete jsonSchema.default;
+
+  // Normalize OpenAPI 3.x `nullable: true` into JSON Schema `type: [..., 'null']`.
+  // json-schema-to-typescript only understands the JSON Schema union-null form
+  // (a `type` array containing 'null'); OpenAPI's `nullable` keyword is
+  // silently ignored, which drops `| null` from generated request/response
+  // types. This walker bridges that gap so nullable fields render as `T | null`.
+  if (jsonSchema.nullable === true) {
+    if (jsonSchema.type) {
+      // Merge 'null' into the existing type(s) without duplicates.
+      const types = castArray(jsonSchema.type).filter(t => t !== 'null') as JSONSchema4TypeName[];
+      if (!types.includes('null')) types.push('null');
+      jsonSchema.type = types.length === 1 ? types[0] : types;
+    } else if (jsonSchema.enum && Array.isArray(jsonSchema.enum)) {
+      // For enum schemas without a type, append a null literal so the
+      // generated union includes `null`.
+      if (!jsonSchema.enum.includes(null)) {
+        jsonSchema.enum = [...jsonSchema.enum, null] as any;
+      }
+    }
+    // Note: `$ref`/`allOf`/`oneOf`/`anyOf` + nullable combinations are not
+    // normalized here because they would require restructuring the schema
+    // (e.g. wrapping in anyOf). This is rare in practice; nullable scalars
+    // cover the common case and are the root cause of the missing `| null`.
+    delete jsonSchema.nullable;
+  }
 
   // 处理类型名称为标准的 JSONSchema 类型名称
   if (jsonSchema.type) {
@@ -229,7 +265,7 @@ export function propDefinitionsToJsonSchema(propDefinitions: PropDefinitions): J
  * 获取prettier配置
  * @returns
  */
-export function getPrettier(): prettier.Options {
+export function getPrettier(): PrettierOptions {
   return {
     printWidth: 120,
     tabWidth: 2,
@@ -268,6 +304,48 @@ export function preprocessSchema(schema: JSONSchema4): JSONSchema4 {
   }
 
   return processed;
+}
+
+/**
+ * Map a JSON Schema property descriptor to a TypeScript type expression.
+ * Used when constructing inline object types for merged path/query params
+ * (see `rewriteRefs`), where `JSON.stringify` would incorrectly serialize
+ * type names as string literals.
+ */
+function jsonSchemaTypeToTs(propSchema: any): string {
+  if (!propSchema || typeof propSchema !== 'object') {
+    return 'unknown';
+  }
+  // Prefer an explicit tsType marker (set for $ref resolutions) over the
+  // raw JSON Schema type name.
+  if (propSchema.tsType) {
+    return propSchema.tsType;
+  }
+  // Enum schemas render as a union of string-literal types.
+  if (propSchema.enum && Array.isArray(propSchema.enum) && propSchema.enum.length) {
+    return propSchema.enum.map((v: any) => (v === null ? 'null' : `'${String(v).replace(/'/g, "\\'")}'`)).join(' | ');
+  }
+  switch (propSchema.type) {
+    case 'integer':
+    case 'number':
+      return 'number';
+    case 'boolean':
+      return 'boolean';
+    case 'string':
+      return 'string';
+    case 'null':
+      return 'null';
+    case 'array': {
+      // Best-effort: derive the element type from items, fall back to any.
+      const itemSchema = Array.isArray(propSchema.items) ? propSchema.items[0] : propSchema.items;
+      const itemTs = itemSchema && (itemSchema.tsType || jsonSchemaTypeToTs(itemSchema));
+      return itemTs ? `${itemTs}[]` : 'any[]';
+    }
+    case 'object':
+    case undefined:
+    default:
+      return 'unknown';
+  }
 }
 
 /**
@@ -318,12 +396,20 @@ export async function jsonSchemaToTsCode(jsonSchema: JSONSchema4, typeName: stri
              * 输出：UpdateVideoCollectionDto & { id: 'string' }
              */
             if (obj.properties) {
-              const propertiesTsObject = {};
+              // Build an inline object type string manually instead of
+              // JSON.stringify, which would serialize type names as string
+              // literals (e.g. `{userId: "string"}` instead of `{userId: string}`).
+              // Guard `obj.required` because it may be undefined for schemas
+              // without a required array.
+              const requiredArr: string[] = Array.isArray(obj.required) ? obj.required : [];
+              const propParts: string[] = [];
               Object.keys(obj.properties).forEach(key => {
-                propertiesTsObject[`${key}${obj.required.includes(key) ? '' : '?'}`] =
-                  obj.properties[key].tsType || obj.properties[key].type;
+                const propSchema = obj.properties[key];
+                const tsType = propSchema.tsType || jsonSchemaTypeToTs(propSchema);
+                const optional = requiredArr.includes(key) ? '' : '?';
+                propParts.push(`${key}${optional}: ${tsType}`);
               });
-              obj['tsType'] += ` & ${JSON.stringify(propertiesTsObject)}`;
+              obj['tsType'] += ` & { ${propParts.join('; ')} }`;
             }
             delete obj['$ref'];
           }
@@ -378,23 +464,12 @@ export async function jsonSchemaToTsCode(jsonSchema: JSONSchema4, typeName: stri
     //   return undefined
     // },
   });
-  if (typeName === 'ListFilePathsResDto') {
-    // console.log(jsonSchema);
-  }
-  if (typeName === 'GetAwsS3FilesFileIdPathResponse') {
-    // console.log(jsonSchema);
-  }
-  if (typeName === 'PatchVideoCollectionsIdRequest') {
-    // console.log(jsonSchema);
-  }
-  if (typeName === 'PatchPermissionsPermissionIdRequest') {
-    /**
-     * export type PatchPermissionsPermissionIdRequest = {
-  permissionId: number;
-} & string;这个& string的问题和req_body_other有关，todo 后续再看
-     */
-    // console.log(jsonSchema);
-  }
+  // Removed four hardcoded debug-if blocks (G-6): empty `if (typeName === ...)`
+  // guards for ListFilePathsResDto / GetAwsS3FilesFileIdPathResponse /
+  // PatchVideoCollectionsIdRequest / PatchPermissionsPermissionIdRequest.
+  // They leaked upstream business type names into the published package and
+  // only contained commented-out console.log calls. The `& string` TODO on
+  // the last one is now resolved by the G-3 degenerate-body normalization.
 
   delete jsonSchema.id;
   return code.replace(fakeTypeName, typeName).trim();
@@ -424,6 +499,26 @@ export function getRequestDataJsonSchema(interfaceInfo: Interface): JSONSchema4 
     default:
       /* istanbul ignore next */
       break;
+  }
+
+  // Normalize a degenerate body schema (G-3): when Nest fails to reflect a
+  // proper DTO schema (inline type / Prisma type / missing @ApiBody type),
+  // the request body may resolve to a bare primitive such as `{type:'string'}`
+  // or a non-object schema. Merging path/query params onto such a root
+  // produces `{id: number} & string`. Coerce it to an object-less schema so
+  // params attach cleanly; the upstream cause is surfaced as a warning (G-5).
+  if (
+    jsonSchema &&
+    jsonSchema.type &&
+    jsonSchema.type !== 'object' &&
+    !jsonSchema.properties &&
+    !jsonSchema.$ref &&
+    !jsonSchema.oneOf &&
+    !jsonSchema.anyOf &&
+    !jsonSchema.allOf
+  ) {
+    delete jsonSchema.type;
+    delete (jsonSchema as any).tsType;
   }
 
   if (isArray(interfaceInfo.req_query) && interfaceInfo.req_query.length) {
@@ -520,10 +615,11 @@ export function sortByWeights<T extends { weights: number[] }>(list: T[]): T[] {
  * @returns
  * https://prettier.io/docs/en/options.html
  */
-export function formatContent(content: string): string {
+export async function formatContent(content: string): Promise<string> {
   // 从项目中获取prettier配置文件
   const config = getPrettier();
-  const prettyOutputContent = prettier.format(content, config);
+  // prettier 3 made `format` asynchronous; callers must await the result.
+  const prettyOutputContent = await prettierFormat(content, config);
 
   return prettyOutputContent;
 }

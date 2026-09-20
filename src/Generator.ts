@@ -3,11 +3,9 @@ import dayjs from 'dayjs';
 import fs from 'fs-extra';
 import path, { dirname } from 'path';
 import * as conso from './console';
-import _ from 'lodash';
 import got from 'got';
 import { OpenAPIV2, OpenAPIV3 } from 'openapi-types';
 import { swaggerJsonToYApiData } from './server/swaggerJsonToYApiData';
-import os from 'os';
 import { dedent, isFunction } from 'vtils';
 import {
   CommentConfig,
@@ -19,7 +17,6 @@ import {
   GeneratorOptions,
   RequestFunctionTemplateProps
 } from './types';
-import { exec } from 'child_process';
 import {
   getRequestDataJsonSchema,
   getResponseDataJsonSchema,
@@ -65,6 +62,35 @@ function handlePathParam(path: string) {
 
   return JSON.stringify(path);
 }
+
+/**
+ * Detect whether a generated request type has degraded to a primitive or
+ * empty shape. A well-formed request DTO is an object literal or interface
+ * reference; these signatures mean the backend did not expose a usable
+ * request body schema (missing `@ApiBody({type})`, inline `@Body()` type,
+ * or a Prisma type bound to `@Body()`), so the generator fell back to a
+ * primitive/empty type. Used to emit a warning so the author can fix the
+ * decorator rather than silently shipping `string`/`{}` to the frontend.
+ * See defect G-5.
+ */
+function isDegradedRequestType(typeCode: string): boolean {
+  // Collapse whitespace so shape-matching regexes are stable regardless of
+  // prettier's spacing choices.
+  const code = typeCode.replace(/\s+/g, ' ').trim();
+  // Pull the right-hand side of `export type Name = <body>;`.
+  const match = code.match(/^export type \w+ = (.*?);?$/);
+  if (!match) return false;
+  const body = match[1].trim();
+  // Bare primitive / unknown (no body schema inferred at all).
+  if (/^(string|unknown|number|boolean|null)$/.test(body)) return true;
+  // Empty object literal (schema stripped to nothing).
+  if (/^\{\s*\}$/.test(body)) return true;
+  // Index signature only — no named fields, just `[k: string]: unknown`.
+  if (/^\{\s*\[\s*\w+\s*:\s*string\s*\]\s*:\s*unknown\s*\}$/.test(body)) return true;
+  // Path-param merge with a primitive fallback (`{ id: string } & string`).
+  if (/&\s*(string|unknown)\b/.test(body)) return true;
+  return false;
+}
 // 默认请求函数体生成模板
 function defaultRequestFunctionTemplate(props: RequestFunctionTemplateProps, config?: SyntheticalConfig): string {
   const { baseURL, requestFunctionName, requestDataTypeName, responseDataTypeName, extendedInterfaceInfo } = props;
@@ -82,8 +108,8 @@ function defaultRequestFunctionTemplate(props: RequestFunctionTemplateProps, con
     hasData ? '' : '?'
   }: ${requestDataTypeName}${`,extra?:Record<string,any>`}) => {
     return request.${method}<${requestDataTypeName},${responseDataTypeName}>(${handlePathParam(
-    extendedInterfaceInfo.path
-  )}, {
+      extendedInterfaceInfo.path
+    )}, {
       ${getDataKeySetStr(method)},
       ${baseURL ? `baseURL: ${finalBaseUrl},` : ''}
       ${`...extra`}
@@ -97,7 +123,10 @@ export class Generator {
 
   private disposes: Array<() => any> = [];
 
-  constructor(config: Config, private options: GeneratorOptions = { cwd: process.cwd() }) {
+  constructor(
+    config: Config,
+    private options: GeneratorOptions = { cwd: process.cwd() }
+  ) {
     // config 可能是对象或数组，统一为数组
     this.config = config;
   }
@@ -121,13 +150,15 @@ export class Generator {
     const openApiV3Json = await this.getOpenApiV3Json(serverUrl);
 
     // components tstype interface
+    // Use optional chaining: a valid OpenAPI document may omit `components`
+    // entirely (e.g. APIs with only path parameters and no schemas). Without
+    // this guard, `Object.keys(openApiV3Json.components.schemas)` throws and
+    // aborts generation (see defect G-10).
+    const componentsSchemas = openApiV3Json.components?.schemas ?? {};
     const componentsCode: string[] = [];
     await Promise.all(
-      Object.keys(openApiV3Json.components.schemas).map(async key => {
-        const code = await jsonSchemaToTsCode(
-          { ...openApiV3Json.components.schemas[key], components: openApiV3Json.components },
-          key
-        );
+      Object.keys(componentsSchemas).map(async key => {
+        const code = await jsonSchemaToTsCode({ ...componentsSchemas[key], components: openApiV3Json.components }, key);
         componentsCode.push(code);
       })
     );
@@ -218,29 +249,12 @@ export class Generator {
           ${content.join('\n\n').trim()}
         `;
 
-        outputContent += formatContent(dedent`${rawOutputContent}`);
+        outputContent += await formatContent(dedent`${rawOutputContent}`);
         if (Object.keys(outputFileList).length - 1 === index) {
           await fs.outputFile(outputFilePath, outputContent);
         }
       })
     );
-  }
-
-  async tsc(file: string) {
-    return new Promise<void>(resolve => {
-      // add this to fix bug that not-generator-file-on-window
-
-      const command = `${os.platform() === 'win32' ? 'node ' : ''}${require.resolve(`typescript/bin/tsc`)}`;
-
-      exec(
-        `${command} --target ES2019 --module ESNext --jsx preserve --declaration --esModuleInterop ${file}`,
-        {
-          cwd: this.options.cwd,
-          env: process.env
-        },
-        () => resolve()
-      );
-    });
   }
 
   /** 请求函数名生成 */
@@ -269,8 +283,16 @@ export class Generator {
       { ...requestDataJsonSchema, components: syntheticalConfig.components },
       requestDataTypeName
     );
-    if (interfaceInfo.path.includes('/path')) {
-      console.log(requestDataType);
+    // Surface request-body type degradation instead of silently shipping a
+    // primitive/empty type to the frontend. Common root causes: missing
+    // `@ApiBody({type: XxxDto})`, inline `@Body() body: {...}` literal, or a
+    // Prisma type bound to `@Body()`. See defect G-5.
+    if (isDegradedRequestType(requestDataType)) {
+      console.warn(
+        `[apits-gener] Request type degraded for ` +
+          `${extendedInterfaceInfo.method.toUpperCase()} ${extendedInterfaceInfo.path} — ` +
+          `check backend @Body()/@ApiBody decorator. Generated:\n${requestDataType}`
+      );
     }
     const responseDataJsonSchema = getResponseDataJsonSchema(extendedInterfaceInfo);
     // console.log(JSON.stringify(responseDataJsonSchema));
@@ -278,9 +300,6 @@ export class Generator {
       { ...responseDataJsonSchema, components: syntheticalConfig.components },
       responseDataTypeName
     );
-    if (interfaceInfo.path.includes('/path')) {
-      console.log(requestDataType);
-    }
 
     // 接口注释
     const genComment = (genTitle: (title: string) => string) => {
@@ -356,8 +375,8 @@ export class Generator {
         typeof baseURL === 'string'
           ? baseURL
           : typeof baseURL === 'function'
-          ? baseURL(extendedInterfaceInfo.path)
-          : '';
+            ? baseURL(extendedInterfaceInfo.path)
+            : '';
     } catch (e) {
       conso.error(e);
     }

@@ -42,19 +42,42 @@ function openapi3Format(data) {
       });
       if (api.requestBody) {
         if (!api.parameters) api.parameters = [];
-        const body = {
-          type: 'object',
-          name: 'body',
-          in: 'body',
-          schema: {}
-        };
-        try {
-          body.schema = api.requestBody.content['application/json'].schema;
-        } catch (e) {
-          body.schema = {};
+        const content = api.requestBody.content || {};
+        // Prefer application/json: keep the swagger 2.0 single body-parameter
+        // shape so the schema flows through handleBodyPamras as JSON schema.
+        // The previous implementation only ever read `application/json` and
+        // silently produced an empty schema for every other content type,
+        // dropping form-encoded bodies entirely. (see defect G-4)
+        const jsonContent = content['application/json'];
+        if (jsonContent && jsonContent.schema) {
+          api.parameters.push({
+            type: 'object',
+            name: 'body',
+            in: 'body',
+            schema: jsonContent.schema
+          });
+        } else {
+          // Form-encoded bodies: expand the schema into individual formData
+          // parameters so binary fields render as `file` and the request body
+          // type becomes `form`. handleSwagger maps `in: 'formData'` params
+          // to req_body_form, and `type: 'file'` is preserved for uploads.
+          const formContent = content['multipart/form-data'] || content['x-www-form-urlencoded'];
+          if (formContent && formContent.schema) {
+            const formSchema = formContent.schema;
+            const required = formSchema.required || [];
+            const props = formSchema.properties || {};
+            Object.keys(props).forEach(function (name) {
+              const prop = props[name] || {};
+              api.parameters.push({
+                name: name,
+                in: 'formData',
+                description: prop.description || '',
+                type: prop.format === 'binary' ? 'file' : prop.type || 'text',
+                required: required.indexOf(name) > -1 ? '1' : '0'
+              });
+            });
+          }
         }
-
-        api.parameters.push(body);
       }
     });
   });
@@ -68,7 +91,7 @@ async function openapi2ToSwaggerData(openapiData) {
     const data = swagger({
       spec: openapiData,
       // 不解析$ref为properties，保持引用关系
-      useCircularStructures: true,
+      useCircularStructures: true
     });
 
     data.then(res => {
@@ -282,20 +305,15 @@ function handleSwagger(data, originTags = []) {
   return api;
 }
 
-function isJson(json) {
-  try {
-    return JSON.parse(json);
-  } catch (e) {
-    return false;
-  }
-}
-
 function handleBodyPamras(data, api) {
   api.req_body_other = JSON.stringify(data, null, 2);
-  if (isJson(api.req_body_other)) {
-    api.req_body_type = 'json';
-    api.req_body_is_json_schema = true;
-  }
+  // `data` is a JSON Schema object, so the serialized string is always valid
+  // JSON. The previous guard `isJson(api.req_body_other)` parsed a value that
+  // had just been `JSON.stringify`'d from an object — it could never fail and
+  // therefore never reported a real problem. Mark as JSON schema directly.
+  // (see defect G-5)
+  api.req_body_type = 'json';
+  api.req_body_is_json_schema = true;
 }
 
 function handleResponse(api) {

@@ -40,10 +40,10 @@ export default async (config: Config, categoryList: { projectId: string }[]) => 
   `;
 
   // 输出index文件
-  fs.appendFile(
+  await fs.appendFile(
     indexFilePath,
 
-    formatContent(dedent`${content}`)
+    await formatContent(dedent`${content}`)
   );
 };
 
@@ -104,9 +104,9 @@ export const genGitRepoIndex = async (config: Config, filePathList: string[], no
   `;
 
   // 输出index文件
-  fs.appendFile(
+  await fs.appendFile(
     indexFilePath,
 
-    formatContent(dedent`${content}`)
+    await formatContent(dedent`${content}`)
   );
 };

@@ -63,5 +63,5 @@ export default async (config: Config) => {
   };
 `;
 
-  fs.outputFile(rawRequestFunctionFilePath, formatContent(dedent`${content}`));
+  await fs.outputFile(rawRequestFunctionFilePath, await formatContent(dedent`${content}`));
 };
