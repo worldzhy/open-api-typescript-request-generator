@@ -5,7 +5,7 @@
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import fs from 'fs-extra';
 import path from 'path';
-import { dedent } from 'vtils';
+import { dedent } from './vtilsLite';
 import { Config } from './types';
 import { getOutputFilePath } from './getOutputPath';
 import { formatContent, topNotesContent } from './utils';

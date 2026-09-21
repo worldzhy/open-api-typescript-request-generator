@@ -4,7 +4,7 @@ import path from 'path';
 import prompt from 'prompts';
 import yargs from 'yargs';
 import { Config } from './types';
-import { dedent } from 'vtils';
+import { dedent } from './vtilsLite';
 import { Generator } from './Generator';
 import yargsParser from 'yargs-parser';
 import chalk from 'chalk';

@@ -6,7 +6,7 @@ import * as conso from './console';
 import got from 'got';
 import { OpenAPIV2, OpenAPIV3 } from 'openapi-types';
 import { swaggerJsonToYApiData } from './server/swaggerJsonToYApiData';
-import { dedent, isFunction } from 'vtils';
+import { dedent, isFunction } from './vtilsLite';
 import {
   CommentConfig,
   Config,
@@ -105,9 +105,8 @@ function defaultRequestFunctionTemplate(props: RequestFunctionTemplateProps, con
   } else {
     finalBaseUrl = `"${baseURL}"`;
   }
-  return `export const ${requestFunctionName} = (data${
-    hasData ? '' : '?'
-  }: ${requestDataTypeName}${`,extra?:Record<string,any>`}) => {
+  return `export const ${requestFunctionName} = (data${hasData ? '' : '?'
+    }: ${requestDataTypeName}${`,extra?:Record<string,any>`}) => {
     return request.${method}<${requestDataTypeName},${responseDataTypeName}>(${handlePathParam(
       extendedInterfaceInfo.path
     )}, {
@@ -288,8 +287,8 @@ export class Generator {
     if (isDegradedRequestType(requestDataType)) {
       console.warn(
         `[apits-gener] Request type degraded for ` +
-          `${extendedInterfaceInfo.method.toUpperCase()} ${extendedInterfaceInfo.path} — ` +
-          `check backend @Body()/@ApiBody decorator. Generated:\n${requestDataType}`
+        `${extendedInterfaceInfo.method.toUpperCase()} ${extendedInterfaceInfo.path} — ` +
+        `check backend @Body()/@ApiBody decorator. Generated:\n${requestDataType}`
       );
     }
     const responseDataJsonSchema = getResponseDataJsonSchema(extendedInterfaceInfo);
@@ -325,26 +324,26 @@ export class Generator {
       const summary: Array<
         | false
         | {
-            label: string;
-            value: string | string[];
-          }
-      > = [
-        hasTag && {
-          label: '标签',
-          value: extendedInterfaceInfo.tag.map(tag => `\`${tag}\``)
-        },
-        hasRequestHeader && {
-          label: '请求头',
-          value: `\`${extendedInterfaceInfo.method.toUpperCase()} ${extendedInterfaceInfo.path}\``
-        },
-        hasUpdateTime && {
-          label: '更新时间',
-          value: process.env.JEST_WORKER_ID // Use a unix timestamp in tests
-            ? String(extendedInterfaceInfo.up_time)
-            : /* istanbul ignore next */
-              `\`${dayjs(extendedInterfaceInfo.up_time * 1000).format('YYYY-MM-DD HH:mm:ss')}\``
+          label: string;
+          value: string | string[];
         }
-      ];
+      > = [
+          hasTag && {
+            label: '标签',
+            value: extendedInterfaceInfo.tag.map(tag => `\`${tag}\``)
+          },
+          hasRequestHeader && {
+            label: '请求头',
+            value: `\`${extendedInterfaceInfo.method.toUpperCase()} ${extendedInterfaceInfo.path}\``
+          },
+          hasUpdateTime && {
+            label: '更新时间',
+            value: process.env.JEST_WORKER_ID // Use a unix timestamp in tests
+              ? String(extendedInterfaceInfo.up_time)
+              : /* istanbul ignore next */
+              `\`${dayjs(extendedInterfaceInfo.up_time * 1000).format('YYYY-MM-DD HH:mm:ss')}\``
+          }
+        ];
       const titleComment = hasTitle
         ? dedent`
             * ${genTitle(description)}
@@ -382,15 +381,15 @@ export class Generator {
       ${dedent`
           ${genComment(title => `${title}`)}
           ${requestFunctionTemplate(
-            {
-              baseURL: baseUrl,
-              requestFunctionName,
-              requestDataTypeName,
-              responseDataTypeName,
-              extendedInterfaceInfo
-            },
-            syntheticalConfig
-          )}
+      {
+        baseURL: baseUrl,
+        requestFunctionName,
+        requestDataTypeName,
+        responseDataTypeName,
+        extendedInterfaceInfo
+      },
+      syntheticalConfig
+    )}
         `}
     `;
 

@@ -1,5 +1,5 @@
 
-import toJsonSchema from 'to-json-schema';
+import toJsonSchema from '../src/toJsonSchema';
 const json={};
 
 const schema = toJsonSchema(json, {

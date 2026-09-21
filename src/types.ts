@@ -1,7 +1,7 @@
 export * from 'json-schema';
 import { JSONSchema4 } from 'json-schema';
 import { OpenAPIV2, OpenAPIV3 } from 'openapi-types';
-import { LiteralUnion, OmitStrict } from 'vtils/types';
+import type { LiteralUnion, OmitStrict } from './vtilsLite';
 import { ParsedPath } from 'path';
 
 export type requestFunctionTemplateType = (props: RequestFunctionTemplateProps, config?: SyntheticalConfig) => string;

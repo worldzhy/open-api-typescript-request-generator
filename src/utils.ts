@@ -1,10 +1,10 @@
 import JSON5 from 'json5';
 import Mock from 'mockjs';
 import path from 'path';
-import toJsonSchema from 'to-json-schema';
-import { castArray, forOwn, isArray, isEmpty, isObject } from 'vtils';
+import toJsonSchema from './toJsonSchema';
+import { castArray, forOwn, isArray, isEmpty, isObject } from './vtilsLite';
 import { compile, Options } from 'json-schema-to-typescript';
-import { Defined } from 'vtils/types';
+import type { Defined } from './vtilsLite';
 import { FileData } from './helpers';
 import { format as prettierFormat, type Options as PrettierOptions } from 'prettier';
 import {
