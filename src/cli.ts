@@ -1,6 +1,4 @@
-#!/usr/bin/env ts-node
-
-import * as TSNode from 'ts-node';
+import { register } from 'tsx/cjs/api';
 import fs from 'fs-extra';
 import path from 'path';
 import prompt from 'prompts';
@@ -15,25 +13,10 @@ import { formatContent } from './utils';
 import { spinnerInstance } from './spinner';
 import { asyncFnArrayOrderRun } from './helpers';
 
-TSNode.register({
-  // 仅转译，不做类型检查
-  transpileOnly: true,
-  // 自定义编译选项
-  compilerOptions: {
-    strict: false,
-    target: 'es2017',
-    module: 'commonjs',
-    moduleResolution: 'node',
-    declaration: false,
-    removeComments: false,
-    esModuleInterop: true,
-    allowSyntheticDefaultImports: true,
-    importHelpers: false,
-    // 转换 js，支持在 apits.config.js 里使用最新语法
-    allowJs: true,
-    lib: ['es2017']
-  }
-});
+// Register the tsx loader so apits.config.ts / apits.config.local.ts can be
+// required at runtime. tsx transpiles via esbuild (no type-checking) and
+// reads tsconfig.json automatically, so no compilerOptions are needed here.
+register();
 
 export async function getConfig() {
   const cwd = process.cwd();
