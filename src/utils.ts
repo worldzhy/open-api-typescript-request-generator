@@ -296,6 +296,25 @@ export function preprocessSchema(schema: JSONSchema4): JSONSchema4 {
     // console.warn('Removed empty enum array from schema');
   }
 
+  // Normalize OpenAPI 3.x `nullable: true` into the JSON Schema union-null
+  // form (`type: [T, 'null']`) so json-schema-to-typescript emits `T | null`.
+  // This is required because component schemas reach the compiler through
+  // this preprocessor instead of `processJsonSchema`, and jstt silently
+  // ignores the OpenAPI `nullable` keyword. Every node here is a fresh copy,
+  // so the source document is never mutated.
+  if (processed.nullable === true) {
+    if (processed.type) {
+      // Merge 'null' into the existing type(s) without duplicates.
+      const typeList: string[] = castArray(processed.type).filter(typeName => typeName !== 'null');
+      typeList.push('null');
+      processed.type = (typeList.length === 1 ? typeList[0] : typeList) as any;
+    } else if (Array.isArray(processed.enum)) {
+      // For enum schemas without a type, append a null literal.
+      if (!processed.enum.includes(null)) processed.enum = [...processed.enum, null];
+    }
+    delete processed.nullable;
+  }
+
   // 递归处理所有属性
   for (const key in processed) {
     if (processed.hasOwnProperty(key)) {
