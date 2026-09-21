@@ -2,7 +2,7 @@ import JSON5 from 'json5';
 import Mock from 'mockjs';
 import toJsonSchema from './toJsonSchema';
 import { castArray, forOwn, isArray, isEmpty, isObject } from './vtilsLite';
-import { compile, Options } from 'json-schema-to-typescript';
+import { compile } from 'json-schema-to-typescript';
 import type { Defined } from './vtilsLite';
 import { FileData } from './helpers';
 import { format as prettierFormat, type Options as PrettierOptions } from 'prettier';
@@ -13,8 +13,7 @@ import {
   RequestBodyType,
   RequestFormItemType,
   Required,
-  ResponseBodyType,
-  Config
+  ResponseBodyType
 } from '../types';
 import { JSONSchema4, JSONSchema4TypeName } from 'json-schema';
 

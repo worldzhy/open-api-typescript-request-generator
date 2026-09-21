@@ -1,6 +1,5 @@
 import type { AppendOptions } from 'form-data';
 import type { Config, RequestConfig, RequestFunctionParams } from '../types';
-import fs from 'fs-extra';
 
 /**
  * Define configuration.

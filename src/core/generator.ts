@@ -1,20 +1,17 @@
 import * as changeCase from 'change-case';
-import dayjs from 'dayjs';
 import fs from 'fs-extra';
 import path from 'path';
 import * as conso from '../utils/console';
 import got from 'got';
-import { OpenAPIV2, OpenAPIV3 } from 'openapi-types';
-import { swaggerJsonToYApiData } from '../converters/swaggerJsonToYApiData';
+import { OpenAPIV3 } from 'openapi-types';
+import { swaggerJsonToYApiData } from '../utils/swaggerJsonToYApiData';
 import { dedent } from '../utils/vtilsLite';
 import {
-  CommentConfig,
   Config,
   ExtendedInterface,
   Interface,
   ApiConfig,
   SyntheticalConfig,
-  GeneratorOptions,
   RequestFunctionTemplateProps
 } from '../types';
 import {
@@ -24,9 +21,8 @@ import {
   formatContent,
   topNotesContent
 } from '../utils/utils';
-import { genJsonSchemeConstContent } from '../modules/responseDataJsonSchemaHandler';
 import { getOutputFilePath } from '../utils/getOutputPath';
-import GenRequest from '../modules/genRequest';
+import GenRequest from './genRequest';
 
 interface OutputFileList {
   [outputFilePath: string]: {
@@ -34,10 +30,6 @@ interface OutputFileList {
     categoryId: string;
     syntheticalConfig: SyntheticalConfig;
     content: string[];
-    outputResponseDataJsonSchemaFilePath: string;
-    responseDataJsonSchemaContent: string[];
-    requestFunctionFilePath: string;
-    requestHookMakerFilePath: string;
   };
 }
 
@@ -123,10 +115,7 @@ export class Generator {
 
   private disposes: Array<() => any> = [];
 
-  constructor(
-    config: Config,
-    private options: GeneratorOptions = { cwd: process.cwd() }
-  ) {
+  constructor(config: Config) {
     // `config` may be an object or an array; store it as-is.
     this.config = config;
   }
@@ -169,10 +158,8 @@ export class Generator {
 
     const categoryCode: string[] = [...componentsCode];
 
-    const categoryResponseDataJsonSchemaContent: string[] = [];
-
     for (let interfaceInfo of interfaceList) {
-      const { code, responseDataJsonSchema } = await this.generateInterfaceCode(
+      const code = await this.generateInterfaceCode(
         {
           ...this.config,
           components: openApiV3Json.components
@@ -180,7 +167,6 @@ export class Generator {
         interfaceInfo
       );
       categoryCode.push(code);
-      categoryResponseDataJsonSchemaContent.push(responseDataJsonSchema);
     }
 
     const catOutputFilePath = getOutputFilePath(this.config, `/${typesName}.ts`);
@@ -190,11 +176,7 @@ export class Generator {
         projectId: typesName,
         categoryId: typesName,
         syntheticalConfig: this.config,
-        content: categoryCode,
-        outputResponseDataJsonSchemaFilePath: getOutputFilePath(this.config, `/${typesName}/responseDataJsonSchema.ts`),
-        responseDataJsonSchemaContent: categoryResponseDataJsonSchemaContent,
-        requestFunctionFilePath: path.join(path.dirname(catOutputFilePath), 'request.ts'),
-        requestHookMakerFilePath: ''
+        content: categoryCode
       };
     }
 
@@ -206,13 +188,6 @@ export class Generator {
    * @param outputFileList generated files
    */
   async write(outputFileList: OutputFileList) {
-    const JsonSchemaContentList: string[] = [];
-    const projects: { projectId: string }[] = [];
-    Object.keys(outputFileList).forEach(filePath => {
-      const item = outputFileList[filePath];
-      JsonSchemaContentList.push(item.responseDataJsonSchemaContent.join('\n'));
-      projects.push({ projectId: item.projectId });
-    });
     const config = this.config || ({} as Config);
 
     // Generate the shared request.ts file.
@@ -221,19 +196,10 @@ export class Generator {
 
     return Promise.all(
       Object.keys(outputFileList).map(async (outputFilePath, index) => {
-        let {
-          content,
-          requestFunctionFilePath,
-          requestHookMakerFilePath,
-          syntheticalConfig,
-          outputResponseDataJsonSchemaFilePath,
-          responseDataJsonSchemaContent
-        } = outputFileList[outputFilePath];
+        const { content, syntheticalConfig } = outputFileList[outputFilePath];
 
         // Rewrite `.jsx?` extensions to `.tsx?`.
         outputFilePath = outputFilePath.replace(/\.js(x)?$/, '.ts$1');
-        requestFunctionFilePath = requestFunctionFilePath.replace(/\.js(x)?$/, '.ts$1');
-        requestHookMakerFilePath = requestHookMakerFilePath.replace(/\.js(x)?$/, '.ts$1');
 
         const topImportTemplate = syntheticalConfig.topImportTemplate || defaultTopImportTemplate;
 
@@ -269,8 +235,6 @@ export class Generator {
       parsedPath: path.parse(interfaceInfo.path)
     };
     const requestFunctionName = this.requestFunctionNameGen(extendedInterfaceInfo);
-    const requestConfigName = changeCase.camelCase(`${requestFunctionName}RequestConfig`);
-    const requestConfigTypeName = changeCase.pascalCase(requestConfigName);
     const requestDataTypeName = changeCase.pascalCase(`${requestFunctionName}Request`);
     const responseDataTypeName = changeCase.pascalCase(`${requestFunctionName}Response`);
     const requestDataJsonSchema = getRequestDataJsonSchema(extendedInterfaceInfo);
@@ -297,63 +261,13 @@ export class Generator {
       responseDataTypeName
     );
 
-    // Build the JSDoc comment block for the generated types/function.
+    // Build the JSDoc title comment for the generated types/function.
     const genComment = (genTitle: (title: string) => string) => {
-      const {
-        enabled: isEnabled = true,
-        title: hasTitle = true,
-        category: hasCategory = true,
-        tag: hasTag = true,
-        requestHeader: hasRequestHeader = true,
-        updateTime: hasUpdateTime = true,
-        link: hasLink = true
-      } = {
-        // For Swagger sources, always disable tags, update time and links.
-        tag: false,
-        updateTime: false,
-        link: false
-      } as CommentConfig;
-      if (!isEnabled) {
-        return '';
-      }
       // Escape slashes in the title.
       const escapedTitle = String(extendedInterfaceInfo.title).replace(/\//g, '\\/');
-      const description = hasLink
-        ? `[${escapedTitle}↗](${syntheticalConfig.serverUrl}/project/${extendedInterfaceInfo.project_id}/interface/api/${extendedInterfaceInfo._id})`
-        : escapedTitle;
-      const summary: Array<
-        | false
-        | {
-          label: string;
-          value: string | string[];
-        }
-      > = [
-          hasTag && {
-            label: '标签',
-            value: extendedInterfaceInfo.tag.map(tag => `\`${tag}\``)
-          },
-          hasRequestHeader && {
-            label: '请求头',
-            value: `\`${extendedInterfaceInfo.method.toUpperCase()} ${extendedInterfaceInfo.path}\``
-          },
-          hasUpdateTime && {
-            label: '更新时间',
-            value: process.env.JEST_WORKER_ID // Use a unix timestamp in tests
-              ? String(extendedInterfaceInfo.up_time)
-              : /* istanbul ignore next */
-              `\`${dayjs(extendedInterfaceInfo.up_time * 1000).format('YYYY-MM-DD HH:mm:ss')}\``
-          }
-        ];
-      const titleComment = hasTitle
-        ? dedent`
-            * ${genTitle(description)}
-            *
-          `
-        : '';
-
       return dedent`
         /**
-         ${[titleComment].filter(Boolean).join('\n')}
+         * ${genTitle(escapedTitle)}
          */
       `;
     };
@@ -393,15 +307,7 @@ export class Generator {
         `}
     `;
 
-    return {
-      code,
-      responseDataJsonSchema: genJsonSchemeConstContent(
-        extendedInterfaceInfo.path,
-        syntheticalConfig.serverUrl || '',
-        extendedInterfaceInfo,
-        responseDataJsonSchema
-      )
-    };
+    return code;
   }
 
   async destroy() {

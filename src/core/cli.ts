@@ -83,13 +83,13 @@ export async function genConfig() {
   conso.success('写入配置文件完毕');
 }
 
-async function startGenerate(config: Config, cwd: string, index = 0) {
+async function startGenerate(config: Config, index = 0) {
   const { outputFilePath } = config;
 
   const label = chalk.green(`${config.serverUrl}耗时`);
   console.time(label);
   spinnerInstance.start();
-  const generator = new Generator(config, { cwd });
+  const generator = new Generator(config);
   const output = await generator.generate();
   await generator.write(output);
   spinnerInstance.clear();
@@ -105,7 +105,7 @@ async function startGenerate(config: Config, cwd: string, index = 0) {
 export async function start(options: { name?: string } = {}) {
   const timeLabel = chalk.green('总耗时');
   console.time(timeLabel);
-  const { cwd, configFileExist, configFile, configTSFile } = await getConfig();
+  const { configFileExist, configFile } = await getConfig();
 
   if (!configFileExist) {
     return conso.error(`未发现配置文件: ${configFile}`);
@@ -127,7 +127,7 @@ export async function start(options: { name?: string } = {}) {
       configToRun.map((configItem, index) => {
         return async () => {
           configItem.configIndex = index;
-          await startGenerate(configItem, cwd, index);
+          await startGenerate(configItem, index);
         };
       })
     );

@@ -1,6 +1,6 @@
 export * from 'json-schema';
 import { JSONSchema4 } from 'json-schema';
-import { OpenAPIV2, OpenAPIV3 } from 'openapi-types';
+import { OpenAPIV3 } from 'openapi-types';
 import type { LiteralUnion, OmitStrict } from './utils/vtilsLite';
 import { ParsedPath } from 'path';
 
@@ -9,10 +9,6 @@ export type requestFunctionTemplateType = (props: RequestFunctionTemplateProps, 
 /** Top dependency generation template function */
 /** Generator parameters */
 export type topImportTemplateType = () => string;
-
-export interface GeneratorOptions {
-  cwd: string;
-}
 
 /** Project information */
 export interface Project {
@@ -327,14 +323,6 @@ export interface ExtendedInterface extends Interface {
 /** Category list, corresponding to exported json content */
 export type CategoryList = Category[];
 
-/** Configuration for generating JSON Schema */
-export interface JsonSchemaConfig {
-  /**
-   * Whether to enable this feature.
-   */
-  enabled: boolean;
-}
-
 /** Configuration for generating comments */
 export interface CommentConfig {
   /**
@@ -350,41 +338,6 @@ export interface CommentConfig {
    * @default true
    */
   title?: boolean;
-
-  /**
-   * Whether to include category name.
-   *
-   * @default true
-   */
-  category?: boolean;
-
-  /**
-   * Whether to include tags.
-   *
-   * @default true
-   */
-  tag?: boolean;
-
-  /**
-   * Whether to include request headers.
-   *
-   * @default true
-   */
-  requestHeader?: boolean;
-
-  /**
-   * Whether to include update time.
-   *
-   * @default true
-   */
-  updateTime?: boolean;
-
-  /**
-   * Whether to add links to title and category name.
-   *
-   * @default true
-   */
-  link?: boolean;
 }
 
 /**
