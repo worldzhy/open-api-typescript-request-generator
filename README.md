@@ -63,10 +63,10 @@ import { defineConfig } from 'open-api-typescript-request-generator'
 export default defineConfig([
   {
     input: 'http://localhost:3041/api-json',
-    name: 'user', // optional, derived from `input` when omitted
     output: 'src/api/user',
+    name: 'user', // optional, derived from `input` when omitted
     baseURL: '[code]:process.env.BASE_API_URL',
-    importTemplate: () => "import request from './request'",
+    clientImportTemplate: () => "import request from './request'",
     client: true
   }
 ])

@@ -35,8 +35,8 @@ interface OutputFileList {
   };
 }
 
-// Default top-level import template for generated files.
-function defaultImportTemplate(config?: Config) {
+// Default client import snippet placed at the top of generated files.
+function defaultClientImportTemplate(config?: Config) {
   return `import request from './request'`;
 }
 
@@ -242,12 +242,13 @@ export class Generator {
         // Rewrite `.jsx?` extensions to `.tsx?`.
         outputFilePath = outputFilePath.replace(/\.js(x)?$/, '.ts$1');
 
-        const importTemplate = syntheticalConfig.importTemplate || defaultImportTemplate;
+        const clientImportTemplate =
+          syntheticalConfig.clientImportTemplate || defaultClientImportTemplate;
 
         // Always write the main file.
         const rawOutputContent = dedent`
           ${topNotesContent()}
-          ${importTemplate(config)}
+          ${clientImportTemplate(config)}
 
           ${content.join('\n\n').trim()}
         `;

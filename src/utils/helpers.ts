@@ -2,15 +2,26 @@ import type { AppendOptions } from 'form-data';
 import type { Config, RequestConfig, RequestFunctionParams } from '../types';
 
 /**
- * Define configuration.
+ * Normalize user configuration into a config array and apply built-in
+ * defaults.
+ *
+ * Defaults:
+ * - `output` falls back to `src/api`.
+ * - `client` falls back to `true`, except when a custom
+ *   `clientImportTemplate` is provided without an explicit `client` value —
+ *   in that case the scaffolded client is skipped automatically, otherwise
+ *   the generated `request.ts` would be dead code (the generated file
+ *   imports the custom client instead).
  *
  * @param config Configuration
  */
 export function defineConfig(config: Config | Config[]): Config[] {
   const configs = config instanceof Array ? config : [config];
   const final: Config[] = configs.map(item => {
+    const client = 'client' in item ? item.client : item.clientImportTemplate ? false : true;
     return {
       output: 'src/api',
+      client,
       ...item
     };
   });

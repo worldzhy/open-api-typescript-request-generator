@@ -4,8 +4,8 @@ import { OpenAPIV3 } from 'openapi-types';
 import type { LiteralUnion, OmitStrict } from './utils/vtilsLite';
 import { ParsedPath } from 'path';
 
-/** Generates the import snippet placed at the top of each generated file. */
-export type ImportTemplate = () => string;
+/** Returns the client import snippet placed at the top of each generated file. */
+export type ClientImportTemplate = () => string;
 
 /** Project information */
 export interface Project {
@@ -258,6 +258,16 @@ export interface ApiConfig {
    */
   input: string;
   /**
+   * Output directory for generated files (relative or absolute path).
+   *
+   * Two files are written into it: `<name>.ts` (type declarations and
+   * request functions) and `request.ts` (the axios client, unless
+   * `client` is false or the file already exists).
+   *
+   * @default 'src/api'
+   */
+  output?: string;
+  /**
    * Base name of the generated types file: code is written to
    * `<output>/<name>.ts`. Also serves as the source identifier for
    * `apits gen -n <name>` filtering.
@@ -268,16 +278,6 @@ export interface ApiConfig {
    * Duplicated derived names get an index suffix.
    */
   name?: string;
-  /**
-   * Output directory for generated files (relative or absolute path).
-   *
-   * Two files are written into it: `<name>.ts` (type declarations and
-   * request functions) and `request.ts` (the axios client, unless
-   * `client` is false or the file already exists).
-   *
-   * @default 'src/api'
-   */
-  output?: string;
   /**
    * Runtime `baseURL` baked into every generated request function.
    *
@@ -292,17 +292,23 @@ export interface ApiConfig {
    */
   baseURL?: ((path: string) => string | undefined) | string;
   /**
-   * Generates the import snippet placed at the top of every generated
-   * file — use it to import a custom request client instead of the
-   * scaffolded `request.ts`.
+   * Returns the import snippet placed at the top of every generated file —
+   * use it to point at a custom request client instead of the scaffolded
+   * `request.ts`.
+   *
+   * Providing this option also flips the default of `client` to `false`,
+   * so no unused `request.ts` is scaffolded; set `client: true` explicitly
+   * to keep both.
    *
    * @default () => "import request from './request'"
    */
-  importTemplate?: ImportTemplate;
+  clientImportTemplate?: ClientImportTemplate;
   /**
    * Whether to scaffold the default axios request client into
    * `<output>/request.ts` (skipped when that file already exists).
-   * Set to `false` when you provide your own client via `importTemplate`.
+   *
+   * Defaults to `true`, and to `false` when `clientImportTemplate` is
+   * provided without an explicit `client` value.
    *
    * @default true
    */

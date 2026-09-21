@@ -108,8 +108,7 @@ function loadConfigFile(discovered: DiscoveredConfig): Config[] {
 function buildCliConfig(flags: GenFlags): Config {
   const config: Config = {
     input: flags.input!,
-    output: flags.output || 'src/api',
-    client: flags.client !== false
+    output: flags.output || 'src/api'
   };
   if (flags.name) {
     config.name = flags.name;
@@ -117,6 +116,9 @@ function buildCliConfig(flags: GenFlags): Config {
   if (flags.baseUrl !== undefined) {
     config.baseURL = flags.baseUrl;
   }
+  // CLI mode has no custom import template, so the scaffolded client is on
+  // unless `--no-client` was passed.
+  config.client = flags.client !== false;
   return defineConfig(config)[0];
 }
 
@@ -239,10 +241,11 @@ export async function genConfig(prefill?: { input?: string }) {
       import { defineConfig } from 'open-api-typescript-request-generator'
 
       export default defineConfig([{
-      ${nameLine}  input: '${configAnswers?.input || ''}',
+        input: '${configAnswers?.input || ''}',
         output: 'src/api',
-        baseURL: '[code]:process.env.BASE_API_URL',
-        importTemplate: () => "${`import request from './request'`}",
+      ${nameLine}  baseURL: '[code]:process.env.BASE_API_URL',
+        clientImportTemplate: () => "${`import request from './request'`}",
+        // Keep the scaffolded request.ts because the import above points at it.
         client: true,
       }])
     `)
