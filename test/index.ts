@@ -10,7 +10,7 @@
  * Run with: `npm test` (tsx watch test/index.ts).
  */
 import assert from 'node:assert/strict';
-import { processJsonSchema, jsonSchemaToTsCode, getRequestDataJsonSchema } from '../src/utils';
+import { processJsonSchema, jsonSchemaToTsCode, getRequestDataJsonSchema } from '../src/utils/utils';
 import { RequestBodyType, Required } from '../src/types';
 
 async function main(): Promise<void> {

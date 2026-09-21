@@ -1,4 +1,4 @@
 #!/usr/bin/env node
 
-import CLI from '../src/cli';
+import CLI from '../src/core/cli';
 new CLI().run(process.argv.slice(2));

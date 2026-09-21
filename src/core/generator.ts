@@ -1,12 +1,12 @@
 import * as changeCase from 'change-case';
 import dayjs from 'dayjs';
 import fs from 'fs-extra';
-import path, { dirname } from 'path';
-import * as conso from './console';
+import path from 'path';
+import * as conso from '../utils/console';
 import got from 'got';
 import { OpenAPIV2, OpenAPIV3 } from 'openapi-types';
-import { swaggerJsonToYApiData } from './server/swaggerJsonToYApiData';
-import { dedent, isFunction } from './vtilsLite';
+import { swaggerJsonToYApiData } from '../converters/swaggerJsonToYApiData';
+import { dedent } from '../utils/vtilsLite';
 import {
   CommentConfig,
   Config,
@@ -16,17 +16,17 @@ import {
   SyntheticalConfig,
   GeneratorOptions,
   RequestFunctionTemplateProps
-} from './types';
+} from '../types';
 import {
   getRequestDataJsonSchema,
   getResponseDataJsonSchema,
   jsonSchemaToTsCode,
   formatContent,
   topNotesContent
-} from './utils';
-import { genJsonSchemeConstContent } from './responseDataJsonSchemaHandler';
-import { getOutputFilePath } from './getOutputPath';
-import GenRequest from './genRequest';
+} from '../utils/utils';
+import { genJsonSchemeConstContent } from '../modules/responseDataJsonSchemaHandler';
+import { getOutputFilePath } from '../utils/getOutputPath';
+import GenRequest from '../modules/genRequest';
 
 interface OutputFileList {
   [outputFilePath: string]: {

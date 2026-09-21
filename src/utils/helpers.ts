@@ -1,5 +1,5 @@
 import type { AppendOptions } from 'form-data';
-import type { Config, RequestConfig, RequestFunctionParams } from './types';
+import type { Config, RequestConfig, RequestFunctionParams } from '../types';
 import fs from 'fs-extra';
 import * as conso from './console';
 
@@ -144,8 +144,8 @@ export function prepare(requestConfig: RequestConfig, requestData: any): Request
     const UniFormData: typeof FormData | undefined = useNativeFormData
       ? FormData
       : useNodeFormData
-      ? eval(`require('form-data')`)
-      : undefined;
+        ? eval(`require('form-data')`)
+        : undefined;
     if (!UniFormData) {
       throw new Error('FormData is not supported in the current environment');
     }
@@ -185,32 +185,5 @@ export const asyncFnArrayOrderRun = async <T = any>(fns: (() => Promise<T>)[], r
     return res1;
   }
   return results || [];
-};
-
-/**
- * Concurrent request queue
- * @param fns
- * @param limit
- * @returns
- */
-export const autoAsyncSplitQueue = async <T = any>(fns: (() => Promise<T>)[], limit = 1000) => {
-  const len = fns.length;
-  let count = 0;
-  const splitArray: (() => Promise<T>)[][] = [];
-
-  while (count < len) {
-    splitArray.push(fns.slice(count, count + limit));
-    count += limit;
-  }
-
-  const result = await asyncFnArrayOrderRun(
-    splitArray.map(item => {
-      return async () => {
-        const res = await Promise.all(item.map(i => i()));
-        return res;
-      };
-    })
-  );
-  return result.flat();
 };
 

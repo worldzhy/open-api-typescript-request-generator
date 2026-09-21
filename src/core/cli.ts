@@ -3,15 +3,15 @@ import fs from 'fs-extra';
 import path from 'path';
 import prompt from 'prompts';
 import yargs from 'yargs';
-import { Config } from './types';
-import { dedent } from './vtilsLite';
-import { Generator } from './Generator';
+import { Config } from '../types';
+import { dedent } from '../utils/vtilsLite';
+import { Generator } from './generator';
 import yargsParser from 'yargs-parser';
 import chalk from 'chalk';
-import * as conso from './console';
-import { formatContent } from './utils';
-import { spinnerInstance } from './spinner';
-import { asyncFnArrayOrderRun } from './helpers';
+import * as conso from '../utils/console';
+import { formatContent } from '../utils/utils';
+import { spinnerInstance } from '../utils/spinner';
+import { asyncFnArrayOrderRun } from '../utils/helpers';
 
 // Register the tsx loader so apits.config.ts / apits.config.local.ts can be
 // required at runtime. tsx transpiles via esbuild (no type-checking) and
@@ -186,9 +186,9 @@ export default class CLI {
       .command<any>(
         'init',
         '生成配置文件',
-        y => {},
+        y => { },
         async (argv: any) => {
-          const {} = argv;
+          const { } = argv;
           await genConfig();
         }
       )

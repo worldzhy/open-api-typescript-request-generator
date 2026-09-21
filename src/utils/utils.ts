@@ -16,7 +16,7 @@ import {
   Required,
   ResponseBodyType,
   Config
-} from './types';
+} from '../types';
 import { JSONSchema4, JSONSchema4TypeName } from 'json-schema';
 
 /**
@@ -34,45 +34,12 @@ function upperFirst(value: string): string {
 }
 
 /**
- * Throw an error.
- *
- * @param msg error message parts
- */
-export function throwError(...msg: string[]): never {
-  /* istanbul ignore next */
-  throw new Error(msg.join(''));
-}
-
-/**
- * Normalize a path to unix-style separators.
- *
- * @param path input path
- * @returns path with forward slashes only
- */
-export function toUnixPath(path: string) {
-  return path.replace(/[/\\]+/g, '/');
-}
-
-/**
- * Get a normalized relative path.
- *
- * @param from source path
- * @param to target path
- * @returns relative path
- */
-export function getNormalizedRelativePath(from: string, to: string) {
-  return toUnixPath(path.relative(path.dirname(from), to))
-    .replace(/^(?=[^.])/, './')
-    .replace(/\.(ts|js)x?$/i, '');
-}
-
-/**
  * Process a JSON Schema in place.
  *
  * @param jsonSchema JSON Schema to process
  * @returns the processed JSON Schema
  */
-export function processJsonSchema<T extends JSONSchema4>(jsonSchema: T): T {
+function processJsonSchema<T extends JSONSchema4>(jsonSchema: T): T {
   if (!isObject(jsonSchema)) return jsonSchema;
 
   // Remove `title` and `id` so json-schema-to-typescript does not extract them as interface names.
@@ -561,23 +528,6 @@ export function getResponseDataJsonSchema(interfaceInfo: Interface): JSONSchema4
   }
 
   return jsonSchema;
-}
-
-export function sortByWeights<T extends { weights: number[] }>(list: T[]): T[] {
-  list.sort((a, b) => {
-    const x = a.weights.length > b.weights.length ? b : a;
-    const minLen = Math.min(a.weights.length, b.weights.length);
-    const maxLen = Math.max(a.weights.length, b.weights.length);
-    x.weights.push(...new Array(maxLen - minLen).fill(0));
-    const w = a.weights.reduce((w, _, i) => {
-      if (w === 0) {
-        w = a.weights[i] - b.weights[i];
-      }
-      return w;
-    }, 0);
-    return w;
-  });
-  return list;
 }
 
 /**

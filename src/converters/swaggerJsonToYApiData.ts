@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 import swagger from 'swagger-client';
 import { Category, Interface, Project } from '../types';
-import { each, find } from '../vtilsLite';
+import { each, find } from '../utils/vtilsLite';
 import { OpenAPIV2 as SwaggerType } from 'openapi-types';
 
 let SwaggerData: { parameters?: any };

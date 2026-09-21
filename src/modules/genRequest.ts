@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import fs from 'fs-extra';
-import { dedent } from './vtilsLite';
-import { Config } from './types';
-import { getOutputFilePath } from './getOutputPath';
-import { formatContent, topNotesContent } from './utils';
+import { Config } from '../types';
+import { dedent } from '../utils/vtilsLite';
+import { getOutputFilePath } from '../utils/getOutputPath';
+import { formatContent, topNotesContent } from '../utils/utils';
 
 export default async (config: Config) => {
   const { defaultRequestLib } = config;
