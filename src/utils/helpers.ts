@@ -10,8 +10,7 @@ export function defineConfig(config: Config | Config[]): Config[] {
   const configs = config instanceof Array ? config : [config];
   const final: Config[] = configs.map(item => {
     return {
-      serverUrl: '',
-      outputFilePath: 'src/api',
+      output: 'src/api',
       ...item
     };
   });

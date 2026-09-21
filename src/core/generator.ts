@@ -1,6 +1,8 @@
 import * as changeCase from 'change-case';
 import fs from 'fs-extra';
 import path from 'path';
+import yaml from 'js-yaml';
+import JSON5 from 'json5';
 import * as conso from '../utils/console';
 import got from 'got';
 import { OpenAPIV3 } from 'openapi-types';
@@ -22,7 +24,7 @@ import {
   topNotesContent
 } from '../utils/utils';
 import { getOutputFilePath } from '../utils/getOutputPath';
-import GenRequest from './genRequest';
+import writeRequestClient from './writeRequestClient';
 
 interface OutputFileList {
   [outputFilePath: string]: {
@@ -34,7 +36,7 @@ interface OutputFileList {
 }
 
 // Default top-level import template for generated files.
-function defaultTopImportTemplate(config?: Config) {
+function defaultImportTemplate(config?: Config) {
   return `import request from './request'`;
 }
 
@@ -120,11 +122,50 @@ export class Generator {
     this.config = config;
   }
 
-  async getOpenApiV3Json(url: string): Promise<OpenAPIV3.Document> {
-    const res = await got.get<OpenAPIV3.Document>(url, {
-      responseType: 'json'
-    });
-    return res.body;
+  /** Whether an input points to a remote http(s) resource. */
+  private static isHttpInput(input: string): boolean {
+    return /^https?:\/\//i.test(input);
+  }
+
+  /**
+   * Derive a file base name from the input: hostname for URLs, file name
+   * without extension for local paths. Falls back to `api`.
+   */
+  static deriveName(input: string): string {
+    let raw = '';
+    if (Generator.isHttpInput(input)) {
+      try {
+        raw = new URL(input).hostname.replace(/^www\./, '');
+      } catch {
+        raw = '';
+      }
+    } else {
+      raw = path.basename(input).replace(/\.(json5?|ya?ml)$/i, '');
+    }
+    return changeCase.camelCase(raw) || 'api';
+  }
+
+  /** Parse a raw JSON / JSON5 / YAML document string. */
+  private parseSpecDocument(raw: string): OpenAPIV3.Document {
+    const head = raw.trimStart();
+    if (head.startsWith('{') || head.startsWith('[')) {
+      return JSON5.parse(raw);
+    }
+    return yaml.load(raw) as OpenAPIV3.Document;
+  }
+
+  /**
+   * Load the OpenAPI document from a remote URL or a local file.
+   * Both JSON (.json/.json5) and YAML (.yaml/.yml) are supported.
+   */
+  async loadSpec(input: string): Promise<OpenAPIV3.Document> {
+    if (Generator.isHttpInput(input)) {
+      const res = await got.get(input, { responseType: 'text' });
+      return this.parseSpecDocument(res.body);
+    }
+    const filePath = path.resolve(input);
+    const raw = await fs.readFile(filePath, 'utf-8');
+    return this.parseSpecDocument(raw);
   }
 
   /**
@@ -134,9 +175,9 @@ export class Generator {
   async generate(): Promise<OutputFileList> {
     const outputFileList: OutputFileList = Object.create(null);
 
-    const { serverUrl, configIndex, name } = this.config;
-    const typesName = name || '_types_' + (configIndex + 1);
-    const openApiV3Json = await this.getOpenApiV3Json(serverUrl);
+    const { input, name } = this.config;
+    const typesName = name || Generator.deriveName(input);
+    const openApiV3Json = await this.loadSpec(input);
 
     // Generate TypeScript interfaces for every schema declared under
     // `components.schemas`. Use optional chaining: a valid OpenAPI document
@@ -190,8 +231,8 @@ export class Generator {
   async write(outputFileList: OutputFileList) {
     const config = this.config || ({} as Config);
 
-    // Generate the shared request.ts file.
-    await GenRequest(config);
+    // Scaffold the shared request client (request.ts) when enabled.
+    await writeRequestClient(config);
     let outputContent = '';
 
     return Promise.all(
@@ -201,12 +242,12 @@ export class Generator {
         // Rewrite `.jsx?` extensions to `.tsx?`.
         outputFilePath = outputFilePath.replace(/\.js(x)?$/, '.ts$1');
 
-        const topImportTemplate = syntheticalConfig.topImportTemplate || defaultTopImportTemplate;
+        const importTemplate = syntheticalConfig.importTemplate || defaultImportTemplate;
 
         // Always write the main file.
         const rawOutputContent = dedent`
           ${topNotesContent()}
-          ${topImportTemplate(config)}
+          ${importTemplate(config)}
 
           ${content.join('\n\n').trim()}
         `;
@@ -250,7 +291,7 @@ export class Generator {
     // Prisma type bound to `@Body()`.
     if (isDegradedRequestType(requestDataType)) {
       console.warn(
-        `[apits-gener] Request type degraded for ` +
+        `[apits] Request type degraded for ` +
         `${extendedInterfaceInfo.method.toUpperCase()} ${extendedInterfaceInfo.path} — ` +
         `check backend @Body()/@ApiBody decorator. Generated:\n${requestDataType}`
       );

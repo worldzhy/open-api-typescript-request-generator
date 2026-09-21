@@ -4,11 +4,8 @@ import { OpenAPIV3 } from 'openapi-types';
 import type { LiteralUnion, OmitStrict } from './utils/vtilsLite';
 import { ParsedPath } from 'path';
 
-export type requestFunctionTemplateType = (props: RequestFunctionTemplateProps, config?: SyntheticalConfig) => string;
-
-/** Top dependency generation template function */
-/** Generator parameters */
-export type topImportTemplateType = () => string;
+/** Generates the import snippet placed at the top of each generated file. */
+export type ImportTemplate = () => string;
 
 /** Project information */
 export interface Project {
@@ -164,84 +161,6 @@ export interface Category {
   up_time: number;
 }
 
-export interface ChangeCase {
-  /**
-   * @example
-   * changeCase.camelCase('test string') // => 'testString'
-   */
-  camelCase: (value: string) => string;
-  /**
-   * @example
-   * changeCase.constantCase('test string') // => 'TEST_STRING'
-   */
-  constantCase: (value: string) => string;
-  /**
-   * @example
-   * changeCase.dotCase('test string') // => 'test.string'
-   */
-  dotCase: (value: string) => string;
-  /**
-   * @example
-   * changeCase.headerCase('test string') // => 'Test-String'
-   */
-  headerCase: (value: string) => string;
-  /**
-   * @example
-   * changeCase.lowerCase('TEST STRING') // => 'test string'
-   */
-  lowerCase: (value: string) => string;
-  /**
-   * @example
-   * changeCase.lowerCaseFirst('TEST') // => 'tEST'
-   */
-  lowerCaseFirst: (value: string) => string;
-  /**
-   * @example
-   * changeCase.paramCase('test string') // => 'test-string'
-   */
-  paramCase: (value: string) => string;
-  /**
-   * @example
-   * changeCase.pascalCase('test string') // => 'TestString'
-   */
-  pascalCase: (value: string) => string;
-  /**
-   * @example
-   * changeCase.pathCase('test string') // => 'test/string'
-   */
-  pathCase: (value: string) => string;
-  /**
-   * @example
-   * changeCase.sentenceCase('testString') // => 'Test string'
-   */
-  sentenceCase: (value: string) => string;
-  /**
-   * @example
-   * changeCase.snakeCase('test string') // => 'test_string'
-   */
-  snakeCase: (value: string) => string;
-  /**
-   * @example
-   * changeCase.swapCase('Test String') // => 'tEST sTRING'
-   */
-  swapCase: (value: string) => string;
-  /**
-   * @example
-   * changeCase.titleCase('a simple test') // => 'A Simple Test'
-   */
-  titleCase: (value: string) => string;
-  /**
-   * @example
-   * changeCase.upperCase('test string') // => 'TEST STRING'
-   */
-  upperCase: (value: string) => string;
-  /**
-   * @example
-   * changeCase.upperCaseFirst('test') // => 'Test'
-   */
-  upperCaseFirst: (value: string) => string;
-}
-
 /** Request method */
 export enum Method {
   GET = 'GET',
@@ -323,122 +242,71 @@ export interface ExtendedInterface extends Interface {
 /** Category list, corresponding to exported json content */
 export type CategoryList = Category[];
 
-/** Configuration for generating comments */
-export interface CommentConfig {
-  /**
-   * Whether to enable this feature.
-   *
-   * @default true
-   */
-  enabled?: boolean;
-
-  /**
-   * Whether to include title.
-   *
-   * @default true
-   */
-  title?: boolean;
-}
-
 /**
- * Shared configuration.
- */
-export interface SharedConfig {
-  /**
-   * Output file path.
-   *
-   * Can be `relative path` or `absolute path`.
-   *
-   * @example 'src/api/index.ts'
-   */
-  outputFilePath?: string;
-
-  /**
-   * Request function file path.
-   *
-   * @default `request.ts` file in the same directory as `outputFilePath`
-   * @example 'src/api/request.ts'
-   */
-  requestFunctionFilePath?: string;
-
-  /**
-   * Configuration for generating comments.
-   */
-  comment?: CommentConfig;
-
-  /**
-   * Get the name of the request function.
-   *
-   * @default changeCase.camelCase(interfaceInfo.parsedPath.name)
-   * @param interfaceInfo Interface information
-   * @param changeCase Collection of common case conversion functions
-   * @returns Name of the request function
-   */
-  getRequestFunctionName?(interfaceInfo: ExtendedInterface, changeCase: ChangeCase): string;
-
-  /**
-   * Get the name of the request data type.
-   *
-   * @default changeCase.pascalCase(`${requestFunctionName}Request`)
-   * @param interfaceInfo Interface information
-   * @param changeCase Collection of common case conversion functions
-   * @returns Name of the request data type
-   */
-  getRequestDataTypeName?(interfaceInfo: ExtendedInterface, changeCase: ChangeCase): string;
-
-  /**
-   * Get the name of the response data type.
-   *
-   * @default changeCase.pascalCase(`${requestFunctionName}Response`)
-   * @param interfaceInfo Interface information
-   * @param changeCase Collection of common case conversion functions
-   * @returns Name of the response data type
-   */
-  getResponseDataTypeName?(interfaceInfo: ExtendedInterface, changeCase: ChangeCase): string;
-}
-
-/**
- * Server configuration.
+ * Generator configuration for one OpenAPI source.
  */
 export interface ApiConfig {
-  name: string;
-  configIndex?: number;
   /**
-   * Server URL. Enter the swagger json address here.
-   * For example, nestjs projects usually use http://localhost:3041/api-json
+   * The OpenAPI document to generate code from. Required.
    *
+   * Accepts an http(s) URL or a local file path. Local files may be
+   * JSON (.json / .json5) or YAML (.yaml / .yml).
+   *
+   * @example 'http://localhost:3041/api-json'
+   * @example './openapi.json'
+   * @example './docs/openapi.yaml'
    */
-  serverUrl: string;
+  input: string;
   /**
-   * Output file path.
+   * Base name of the generated types file: code is written to
+   * `<output>/<name>.ts`. Also serves as the source identifier for
+   * `apits gen -n <name>` filtering.
    *
-   * Can be `relative path` or `absolute path`.
-   *
-   * @example 'src/api/index.ts'
+   * Defaults to a name derived from `input`: the URL hostname
+   * (`http://localhost:3041/api-json` -> `localhost`) or the local file
+   * name without extension (`./user.openapi.yaml` -> `userOpenapi`).
+   * Duplicated derived names get an index suffix.
    */
-  outputFilePath?: string;
+  name?: string;
   /**
-   * Set the baseURL for the interface
+   * Output directory for generated files (relative or absolute path).
    *
-   * @description To configure runtime code, add the `[code]:` prefix
-   ```
-   Example:
-    baseURL: "[code]:process.env.BASE_URL"  => baseURL:process.env.BASE_URL
-
-    baseURL: "http://localhost:3000" => baseURL:"http://localhost:3000"
-   ```
+   * Two files are written into it: `<name>.ts` (type declarations and
+   * request functions) and `request.ts` (the axios client, unless
+   * `client` is false or the file already exists).
+   *
+   * @default 'src/api'
+   */
+  output?: string;
+  /**
+   * Runtime `baseURL` baked into every generated request function.
+   *
+   * Prefix with `[code]:` to emit the value as code instead of a string
+   * literal, e.g. to read from an env var at runtime:
+   *
+   * - `baseURL: '[code]:process.env.BASE_URL'` -> `baseURL: process.env.BASE_URL`
+   * - `baseURL: 'http://localhost:3000'`       -> `baseURL: "http://localhost:3000"`
+   *
+   * May also be a function receiving each API path and returning the
+   * baseURL to use for that path (or undefined to omit).
    */
   baseURL?: ((path: string) => string | undefined) | string;
   /**
-   * Define a code snippet at the top of each generated api file
-   * For example: import custom request function
-   * default: import request from './request'
+   * Generates the import snippet placed at the top of every generated
+   * file — use it to import a custom request client instead of the
+   * scaffolded `request.ts`.
+   *
+   * @default () => "import request from './request'"
    */
-  topImportTemplate?: topImportTemplateType;
+  importTemplate?: ImportTemplate;
   /**
-   * Whether to use the default request library, request.ts will not be generated after disabling, default: true
+   * Whether to scaffold the default axios request client into
+   * `<output>/request.ts` (skipped when that file already exists).
+   * Set to `false` when you provide your own client via `importTemplate`.
+   *
+   * @default true
    */
-  defaultRequestLib?: boolean;
+  client?: boolean;
 }
 
 /** Combined configuration. */

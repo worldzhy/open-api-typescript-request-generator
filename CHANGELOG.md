@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.0.6] - 2026-09-21
+
+> Zero-config CLI, optional config file, `src/` restructure, and dependency-tree cleanup. Contains breaking config renames — see below.
+
+### Breaking Changes
+
+- **CLI binary renamed**: `apits-gener` → `apits` (aligned with `apits.config.ts` and the package.json `apits` field).
+- **`ApiConfig.serverUrl` → `input`**: now accepts an http(s) URL **or a local file path** (`.json` / `.json5` / `.yaml` / `.yml`).
+- **Config field renames**: `outputFilePath` → `output` (it is a directory), `defaultRequestLib` → `client` (via the short-lived `useDefaultRequestClient`), `topImportTemplate` → `importTemplate`.
+- **Config file is no longer required**: `gen` works from a positional input; `apits.config.*` became an optional escape hatch (auto-discovered). Existing config files keep working after renaming `serverUrl` → `input`.
+- **`ApiConfig.name` is now optional**: derived from the input host / file name (e.g. `http://localhost:3041/api-json` → `localhost.ts`, `./user.openapi.yaml` → `userOpenapi.ts`); duplicated derived names get an index suffix.
+- Removed internal `ApiConfig.configIndex`.
+- **`dist/` layout follows the `src/` restructure** (e.g. `dist/cjs/core/cli.js`); the `bin/apits` entry was updated in step. Only affects consumers importing internal paths.
+
+### Features
+
+- **Zero-config CLI**: `apits gen <input>` or just `apits <input>`; new flags `-o/--output`, `-n/--name`, `--base-url` (supports the `[code]:` prefix), `--no-client`, `-w/--watch` (watches a local document and regenerates on change, with debounce; remote inputs are ignored with a hint).
+- **Local spec file support**: JSON, JSON5 and YAML documents can be generated from directly (`js-yaml` added).
+- **Config file auto-discovery**: `apits.config.local.ts` → `apits.config.ts` → `apits.config.local.json` → `apits.config.json` → the `apits` field in `package.json`. CLI flags override config-file values; in config-file mode `-n/--name` selects which source(s) to run.
+- **`init` demoted to optional scaffolding**: `apits init [input]` pre-fills the document address; running without any input now prints copy-pasteable hints instead of demanding a config file.
+- **Name collision safety**: multi-source configs derive unique names so generated files never overwrite each other.
+
+### Bug Fixes
+
+- **CLI no longer hangs under background / redirected stdio** (CI, npm scripts): `swagger-client` synchronously blocked at `require()` time in that environment. It was only referenced by unreachable dead code and has been removed entirely.
+
+### Dependency Cleanup
+
+- `dependencies` tree now contains **zero deprecated packages**:
+  - Removed unused `rimraf`, `download-git-repo` (and `@types/rimraf`).
+  - `swagger-client` `3.35.6` → `3.38.2`, then **removed entirely** (see Bug Fixes above).
+  - Replaced `vtils` and `to-json-schema` (pulled deprecated `lodash.isequal`) with local implementations `utils/vtilsLite.ts` and `utils/toJsonSchema.ts` (removed `@types/to-json-schema`).
+  - Added `js-yaml` (+ `@types/js-yaml`) for YAML spec parsing.
+
+### Code Refactor & Cleanup
+
+- **`src/` restructured** into `core/` (`cli.ts`, `generator.ts`, `writeRequestClient.ts`) and `utils/` (9 utility/converter files); package entry `index.ts` and `types.ts` stay at the root so `main`/`module`/`types` are unchanged. All files are camelCase; `Generator.ts` → `generator.ts`, `genRequest.ts` → `writeRequestClient.ts` (paired with the `client` rename).
+- **Dead code removed**: `modules/genIndex.ts`, `modules/dependenciesHandler.ts`, `modules/responseDataJsonSchemaHandler.ts` (runtime response-validation chain whose consumers no longer exist), `server/mock.ts`; JSDoc link / update-time / tag rendering that depended on fake YApi placeholder data.
+- Unused imports and internal-only exports trimmed (verified via `tsc --noUnusedLocals/--noUnusedParameters`).
+- Removed dead exported types `SharedConfig` (incl. the never-read `requestFunctionFilePath` and three never-invoked `getRequestFunctionName` / `getRequestDataTypeName` / `getResponseDataTypeName` hooks), `CommentConfig`, and `ChangeCase` — all had zero internal references and are superseded by the hardcoded naming in `Generator`.
+- Type aliases now follow PascalCase: `importTemplateType` → `ImportTemplate`; the unused alias `requestFunctionTemplateType` was removed.
+
+### Docs
+
+- README rewritten: zero-config quick start, CLI option table, generated-output description, optional config file section.
+
+---
+
 ## [0.0.5] - 2026-09-21
 
 > Build toolchain upgrade, OpenAPI nullable support, path-param type fix, and code quality cleanup.

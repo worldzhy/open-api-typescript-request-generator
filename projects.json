@@ -4,7 +4,7 @@
     "typesOnly": false,
     "target": "typescript",
     "prodEnvName": "local",
-    "outputFilePath": "src/api",
+    "output": "src/api",
     "dataKey": "data",
     "jsonSchema": {
         "enabled": false

@@ -5,9 +5,9 @@ import { dedent } from '../utils/vtilsLite';
 import { getOutputFilePath } from '../utils/getOutputPath';
 import { formatContent, topNotesContent } from '../utils/utils';
 
-export default async (config: Config) => {
-  const { defaultRequestLib } = config;
-  if (defaultRequestLib === false) return;
+export default async function writeRequestClient(config: Config) {
+  const { client } = config;
+  if (client === false) return;
   const rawRequestFunctionFilePath = getOutputFilePath(config, 'request.ts');
   if (await fs.pathExists(rawRequestFunctionFilePath)) {
     return;
@@ -64,4 +64,4 @@ export default async (config: Config) => {
 `;
 
   await fs.outputFile(rawRequestFunctionFilePath, await formatContent(dedent`${content}`));
-};
+}

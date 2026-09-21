@@ -10,7 +10,7 @@
 //                                                     output 'dist/<format>')
 // - bundless compiles EVERY file under the input dir (`src/**`), so both
 //   `src/index.ts` (library entry) and `src/cli.ts` (bin entry consumed by
-//   `bin/apits-gener`) are emitted automatically — no entry list needed.
+//   `bin/apits`) are emitted automatically — no entry list needed.
 // - Defaults: input `src`, output `dist/esm` + `dist/cjs`; esm uses the babel
 //   transformer (browser platform), cjs uses esbuild (node platform).
 // - `autoExtension: true` makes outputs unambiguous without relying on nested

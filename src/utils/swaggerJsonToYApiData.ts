@@ -1,5 +1,4 @@
 import dayjs from 'dayjs';
-import swagger from 'swagger-client';
 import { Category, Interface } from '../types';
 import { each, find } from './vtilsLite';
 import { OpenAPIV2 as SwaggerType } from 'openapi-types';
@@ -85,21 +84,6 @@ function openapi3Format(data) {
   return data;
 }
 
-async function openapi2ToSwaggerData(openapiData) {
-  return openapiData;
-  return new Promise(resolve => {
-    const data = swagger({
-      spec: openapiData,
-      // Do not resolve $ref into properties; keep the reference relationship.
-      useCircularStructures: true
-    });
-
-    data.then(res => {
-      resolve(res.spec);
-    });
-  });
-}
-
 async function parseOpenapi(
   res
 ): Promise<{ apis: Interface[]; cats: Category[]; basePath: string; swaggerData: SwaggerType.Document }> {
@@ -116,7 +100,6 @@ async function parseOpenapi(
   if (isOAS3) {
     res = openapi3Format(res);
   }
-  res = await openapi2ToSwaggerData(res);
   SwaggerData = res;
   interfaceData.swaggerData = SwaggerData;
 
