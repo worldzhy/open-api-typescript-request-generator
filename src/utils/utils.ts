@@ -1,6 +1,5 @@
 import JSON5 from 'json5';
 import Mock from 'mockjs';
-import path from 'path';
 import toJsonSchema from './toJsonSchema';
 import { castArray, forOwn, isArray, isEmpty, isObject } from './vtilsLite';
 import { compile, Options } from 'json-schema-to-typescript';
@@ -39,7 +38,7 @@ function upperFirst(value: string): string {
  * @param jsonSchema JSON Schema to process
  * @returns the processed JSON Schema
  */
-function processJsonSchema<T extends JSONSchema4>(jsonSchema: T): T {
+export function processJsonSchema<T extends JSONSchema4>(jsonSchema: T): T {
   if (!isObject(jsonSchema)) return jsonSchema;
 
   // Remove `title` and `id` so json-schema-to-typescript does not extract them as interface names.
@@ -148,7 +147,7 @@ function processJsonSchema<T extends JSONSchema4>(jsonSchema: T): T {
  * @param str JSON Schema string
  * @returns parsed JSON Schema object
  */
-export function jsonSchemaStringToJsonSchema(str: string): JSONSchema4 {
+function jsonSchemaStringToJsonSchema(str: string): JSONSchema4 {
   return processJsonSchema(JSON.parse(str));
 }
 
@@ -158,7 +157,7 @@ export function jsonSchemaStringToJsonSchema(str: string): JSONSchema4 {
  * @param json JSON value
  * @returns JSON Schema object
  */
-export function jsonToJsonSchema(json: object): JSONSchema4 {
+function jsonToJsonSchema(json: object): JSONSchema4 {
   const schema = toJsonSchema(json, {
     required: false,
     arrays: {
@@ -187,7 +186,7 @@ export function jsonToJsonSchema(json: object): JSONSchema4 {
  * @param template mockjs template
  * @returns JSON Schema object
  */
-export function mockjsTemplateToJsonSchema(template: object): JSONSchema4 {
+function mockjsTemplateToJsonSchema(template: object): JSONSchema4 {
   return processJsonSchema(Mock.toJSONSchema(template) as any);
 }
 
@@ -197,7 +196,7 @@ export function mockjsTemplateToJsonSchema(template: object): JSONSchema4 {
  * @param propDefinitions list of property definitions
  * @returns JSON Schema object
  */
-export function propDefinitionsToJsonSchema(propDefinitions: PropDefinitions): JSONSchema4 {
+function propDefinitionsToJsonSchema(propDefinitions: PropDefinitions): JSONSchema4 {
   return processJsonSchema({
     type: 'object',
     required: propDefinitions.reduce<string[]>((res, prop) => {
@@ -221,7 +220,7 @@ export function propDefinitionsToJsonSchema(propDefinitions: PropDefinitions): J
  * Get the prettier configuration used to format generated code.
  * @returns prettier options
  */
-export function getPrettier(): PrettierOptions {
+function getPrettier(): PrettierOptions {
   return {
     printWidth: 120,
     tabWidth: 2,
