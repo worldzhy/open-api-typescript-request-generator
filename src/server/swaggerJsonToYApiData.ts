@@ -47,7 +47,7 @@ function openapi3Format(data) {
         // shape so the schema flows through handleBodyPamras as JSON schema.
         // The previous implementation only ever read `application/json` and
         // silently produced an empty schema for every other content type,
-        // dropping form-encoded bodies entirely. (see defect G-4)
+        // dropping form-encoded bodies entirely.
         const jsonContent = content['application/json'];
         if (jsonContent && jsonContent.schema) {
           api.parameters.push({
@@ -90,7 +90,7 @@ async function openapi2ToSwaggerData(openapiData) {
   return new Promise(resolve => {
     const data = swagger({
       spec: openapiData,
-      // 不解析$ref为properties，保持引用关系
+      // Do not resolve $ref into properties; keep the reference relationship.
       useCircularStructures: true
     });
 
@@ -173,7 +173,7 @@ async function parseOpenapi(
 
 function handleSwagger(data, originTags = []) {
   const api: any = {};
-  // 处理基本信息
+  // Basic information.
   api.method = data.method.toUpperCase();
   api.title = data.summary || data.path;
   api.desc = data.description;
@@ -185,7 +185,8 @@ function handleSwagger(data, originTags = []) {
         continue;
       }
 
-      // 如果根路径有 tags，使用根路径 tags,不使用每个接口定义的 tag 做完分类
+      // If the root document has tags, use those as the category instead of
+      // each individual interface's tag.
       if (
         originTags.length > 0 &&
         find(originTags, item => {
@@ -228,7 +229,7 @@ function handleSwagger(data, originTags = []) {
     }
   }
 
-  // 处理response
+  // Process the response body.
   api.res_body = handleResponse(data.responses);
   try {
     JSON.parse(api.res_body);
@@ -237,7 +238,7 @@ function handleSwagger(data, originTags = []) {
   } catch (e) {
     api.res_body_type = 'raw';
   }
-  // 处理参数
+  // Process the request parameters.
   function simpleJsonPathParse(key, json) {
     if (!key || typeof key !== 'string' || key.indexOf('#/') !== 0 || key.length <= 2) {
       return null;
@@ -311,7 +312,6 @@ function handleBodyPamras(data, api) {
   // JSON. The previous guard `isJson(api.req_body_other)` parsed a value that
   // had just been `JSON.stringify`'d from an object — it could never fail and
   // therefore never reported a real problem. Mark as JSON schema directly.
-  // (see defect G-5)
   api.req_body_type = 'json';
   api.req_body_is_json_schema = true;
 }
@@ -355,10 +355,9 @@ function handleResponse(api) {
 export async function swaggerJsonToYApiData(data: any): Promise<{
   interfaces: Interface[];
 }> {
-  // import {mockData} from './mockData';
   const yapiData = await parseOpenapi(data);
 
-  // 兼容没有分类的情况
+  // Fall back to a default category when the document has no categories.
   if (!yapiData.cats.length) {
     yapiData.cats = [
       {

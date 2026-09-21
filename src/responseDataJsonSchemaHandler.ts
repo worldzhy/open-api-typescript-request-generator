@@ -77,7 +77,7 @@ export const responseDataInspector = function (data: any, jsonScheme: JSONSchema
   }
   if (type === 'array') {
     if (items === undefined) {
-      // undefined则为接受任意类型
+      // An undefined items schema means any type is accepted.
       return true;
     }
     if (items instanceof Array) {
@@ -102,7 +102,7 @@ export const jsonSchemeFileHeader = function (): string {
   import { JSONSchema4 } from 'open-api-typescript-request-generator';
 
   /**
-   * 获取scheme的key
+   * Derive a schema key from an API path.
    */
   export const jsonSchemeKey = function (path: string): string {
     const deeps = path.split('/');
@@ -126,7 +126,7 @@ export const jsonSchemeFileHeader = function (): string {
   };
 
   /**
-   * 检查器
+   * Validate response data against its JSON Schema.
    */
   export const responseDataInspector = function (data: any, jsonScheme: JSONSchema4, key: any[] = ['data']): boolean {
     const { type, properties, items } = jsonScheme;
@@ -143,7 +143,7 @@ export const jsonSchemeFileHeader = function (): string {
     }
     if (type === 'array') {
       if (items === undefined) {
-        // undefined则为接受任意类型
+        // An undefined items schema means any type is accepted.
         return true;
       }
       if (items instanceof Array) {

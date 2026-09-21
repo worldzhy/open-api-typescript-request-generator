@@ -1,5 +1,5 @@
 /**
- * 依赖包检测，自动安装所需依赖
+ * Detect dependencies and install missing ones automatically.
  */
 
 import execa from 'execa';
@@ -9,9 +9,9 @@ import consola from 'consola';
 import prompt from 'prompts';
 
 /**
- * 安装依赖包
- * @param packageName
- * @returns
+ * Install a dependency package.
+ * @param packageName package to install
+ * @returns execa result
  */
 export async function installPackage(packageName: string): Promise<any> {
   const hasLocalYarn = fs.existsSync(path.resolve(process.cwd(), 'yarn.lock'));
@@ -25,10 +25,9 @@ export async function installPackage(packageName: string): Promise<any> {
 }
 
 /**
- * 检测是否安装依赖包
- * @param packageName
- * @param autoInstall
- * @returns
+ * Check whether a dependency package is installed, prompting to install if not.
+ * @param packageName package to check
+ * @returns execa result if installed, otherwise undefined
  */
 export async function packageCheck(packageName: string): Promise<any> {
   const targetPackageJson = path.resolve(process.cwd(), 'package.json');

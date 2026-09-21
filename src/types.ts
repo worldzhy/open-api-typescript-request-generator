@@ -317,10 +317,6 @@ export enum ResponseBodyType {
   xml = 'xml',
   /** Raw data */
   raw = 'raw'
-
-  // yapi actually returns json, with another field indicating whether it is json schema
-  /** JSON Schema */
-  // jsonSchema = 'json-schema',
 }
 
 /** Extended interface definition */
@@ -337,20 +333,6 @@ export interface JsonSchemaConfig {
    * Whether to enable this feature.
    */
   enabled: boolean;
-
-  /**
-   * Whether to generate JSON Schema for request data.
-   *
-   * @default true
-   */
-  // requestData?: boolean;
-
-  /**
-   * Whether to generate JSON Schema for response data.
-   *
-   * @default true
-   */
-  // responseData?: boolean;
 }
 
 /** Configuration for generating comments */
@@ -416,7 +398,6 @@ export interface SharedConfig {
    *
    * @example 'src/api/index.ts'
    */
-  // outputFilePath?: string | ((interfaceInfo: Interface, changeCase: ChangeCase) => string);
   outputFilePath?: string;
 
   /**
@@ -426,11 +407,6 @@ export interface SharedConfig {
    * @example 'src/api/request.ts'
    */
   requestFunctionFilePath?: string;
-
-  /**
-   * Configuration for generating JSON Schema.
-   */
-  // jsonSchema?: JsonSchemaConfig;
 
   /**
    * Configuration for generating comments.
@@ -487,7 +463,6 @@ export interface ApiConfig {
    *
    * @example 'src/api/index.ts'
    */
-  // outputFilePath?: string | ((interfaceInfo: Interface, changeCase: ChangeCase) => string);
   outputFilePath?: string;
   /**
    * Set the baseURL for the interface

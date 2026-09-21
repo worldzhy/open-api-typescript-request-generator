@@ -97,7 +97,6 @@ async function startGenerate(config: Config, cwd: string, index = 0) {
   conso.success(`代码生成成功，文件路径：${outputFilePath}`);
   console.timeEnd(label);
   conso.log(chalk.yellowBright('---------------------------\n'));
-  // spinnerInstance.render();
   await generator.destroy();
 
   return true;

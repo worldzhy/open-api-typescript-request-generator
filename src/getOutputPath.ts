@@ -1,5 +1,5 @@
 /**
- * 生成入口文件
+ * Resolve the output file path for a generated file.
  */
 
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */

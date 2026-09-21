@@ -1,5 +1,5 @@
 /**
- * 生成入口文件
+ * Generate the index entry file.
  */
 
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
@@ -11,7 +11,7 @@ import { getOutputFilePath } from './getOutputPath';
 import { formatContent, topNotesContent } from './utils';
 import * as conso from './console';
 
-/** 提前准备好'src/api/index.ts'文件 */
+/** Create the `src/api/index.ts` file if it does not already exist. */
 export async function prepareIndexFile(config: Config) {
   const indexFilePath = getOutputFilePath(config, 'index.ts');
   if (!(await fs.pathExists(indexFilePath))) {
@@ -28,7 +28,6 @@ export default async (config: Config, categoryList: { projectId: string }[]) => 
   }
 
   const exportAllInterface = categoryList.reduce((list, { projectId }, index) => {
-    // return `export * from  "./${projectId}/${categoryId}"`;
     if (originFileContent.indexOf(`${projectId}`) === -1) {
       list.push(`export * from  "./${projectId}"`);
     }
@@ -39,7 +38,7 @@ export default async (config: Config, categoryList: { projectId: string }[]) => 
     ${exportAllInterface.join(';')}
   `;
 
-  // 输出index文件
+  // Append the new exports to the index file.
   await fs.appendFile(
     indexFilePath,
 
@@ -48,9 +47,9 @@ export default async (config: Config, categoryList: { projectId: string }[]) => 
 };
 
 /**
- * 获取index.ts文件里的上次生成时的 git注释信息
- * @param config
- *
+ * Read the git information (repo, branch, commit) stored in the index file
+ * banner from the previous generation run.
+ * @param config generator config
  */
 
 export type GetIndexGitInfoResultName = 'repo' | 'branch' | 'commitId';
@@ -71,7 +70,7 @@ export const getIndexGitInfo = (config: Config): GetIndexGitInfoResult => {
       result[k] = matchRes[1] || '';
     });
   } catch (e) {
-    conso.tips(`未找到${indexFilePath}，将重新生成`);
+    conso.tips(`${indexFilePath} not found, will regenerate`);
   }
   return result;
 };
@@ -83,27 +82,17 @@ export const genGitRepoIndex = async (config: Config, filePathList: string[], no
     originFileContent = fs.readFileSync(indexFilePath, { encoding: 'utf-8' });
   }
 
-  // 清除顶部日志信息
-  // originFileContent = originFileContent.replace(/\/\/(\s+)?<-Logs->(.|\n)+\/\/(\s+)?<-END->/, '');
-
   const exportAllInterface = filePathList.reduce((list, filePath, index) => {
     if (originFileContent.indexOf(filePath) === -1) {
       list.push(`export * from  "./${path.join('./', filePath)}"`);
     }
     return list;
   }, [] as string[]);
-  // const content = `
-  //   // <-Logs->
-  //   ${notes || topNotesContent()}
-  //   // <-END->
-  //   ${originFileContent}
-  //   ${exportAllInterface.join(';')}
-  // `;
   const content = `
     ${exportAllInterface.join(';')}
   `;
 
-  // 输出index文件
+  // Append the new exports to the index file.
   await fs.appendFile(
     indexFilePath,
 

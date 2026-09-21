@@ -10,29 +10,29 @@ export default async (config: Config) => {
   if (defaultRequestLib === false) return;
   const rawRequestFunctionFilePath = getOutputFilePath(config, 'request.ts');
   if (await fs.pathExists(rawRequestFunctionFilePath)) {
-    // conso.tips(`输出目录${outputFilePath}下检测到已有request.ts，如果需要重新生成，请删除该文件 \n`);
     return;
   }
 
   const content = `
   ${topNotesContent()}
 
-  import request,{ AxiosRequestConfig } from 'axios';  // axios版本>=0.18.1
+  import request,{ AxiosRequestConfig } from 'axios';  // axios version >= 0.18.1
 
   const instance = request.create({
     withCredentials: true,
     baseURL: process.env.BASE_URL,
   });
 
-  // 自定义request拦截器
+  // Custom request interceptor.
   instance.interceptors.request.use((config) => {
     return  {
       ...config
     }
   });
 
-  // 自定义response拦截器，
-  // 注意：如果修改接口正常返回的结构，对应的response声明需要修改
+  // Custom response interceptor.
+  // Note: if you change the normal response structure, update the
+  // corresponding response type declarations accordingly.
   instance.interceptors.response.use((res) => {
     const { status } = res;
     if (status >= 200 && status < 300) {
