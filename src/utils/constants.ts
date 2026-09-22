@@ -2,7 +2,7 @@ export const DefaultServerUrl = '';
 
 export enum ResponseErrorCode {
   /** User is not logged in. */
-  UnLogin = 40011
+  UnLogin = 40011,
 }
 
 /** Get the category menu list. */
@@ -21,4 +21,3 @@ export const yapiApiProjectMenuList = '/api/interface/list_menu';
 export const yapiApiExport = '/api/plugin/export';
 /** Get the project token. */
 export const yapiApiToken = '/api/project/token';
-

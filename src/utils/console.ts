@@ -1,4 +1,4 @@
-import consola, { ConsolaLogObject } from 'consola';
+import consola, {ConsolaLogObject} from 'consola';
 import chalk from 'chalk';
 
 /**

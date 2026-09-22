@@ -19,8 +19,7 @@ export type Defined<T> = Exclude<T, undefined>;
  * editor auto-completion for the literals. Mirrors vtils `LiteralUnion`.
  */
 export type LiteralUnion<LiteralType, BaseType extends string | number | bigint | boolean | symbol> =
-  | LiteralType
-  | (BaseType & Record<never, never>);
+  LiteralType | (BaseType & Record<never, never>);
 
 /**
  * Like `Omit` but constrains `K` to keys actually present on `T`.
@@ -71,10 +70,7 @@ export function isEmpty(value: any): boolean {
  * Iterate over the own enumerable string-keyed properties of an object,
  * invoking `callback(value, key)` for each.
  */
-export function forOwn<T extends object>(
-  obj: T,
-  callback: (value: T[keyof T], key: keyof T) => void
-): void {
+export function forOwn<T extends object>(obj: T, callback: (value: T[keyof T], key: keyof T) => void): void {
   if (obj == null) return;
   Object.keys(obj).forEach(key => {
     callback((obj as any)[key], key as keyof T);
@@ -86,10 +82,7 @@ export function forOwn<T extends object>(
  * for each item. For arrays `key` is the numeric index. Types are intentionally
  * loose (matching vtils) because call sites pass heterogeneous OpenAPI data.
  */
-export function each(
-  collection: any,
-  callback: (value: any, key: any) => void
-): void {
+export function each(collection: any, callback: (value: any, key: any) => void): void {
   if (collection == null) return;
   if (Array.isArray(collection)) {
     collection.forEach((value, index) => callback(value, index));
@@ -104,10 +97,7 @@ export function each(
  * Return the first item in a collection for which `predicate` returns a
  * truthy value, or `undefined` if none matches.
  */
-export function find(
-  collection: any,
-  predicate: (value: any, key: any) => boolean
-): any {
+export function find(collection: any, predicate: (value: any, key: any) => boolean): any {
   if (collection == null) return undefined;
   if (Array.isArray(collection)) {
     return collection.find((value, index) => predicate(value, index));

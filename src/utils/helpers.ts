@@ -1,5 +1,5 @@
-import type { AppendOptions } from 'form-data';
-import type { Config, RequestConfig, RequestFunctionParams } from '../types';
+import type {AppendOptions} from 'form-data';
+import type {Config, RequestConfig, RequestFunctionParams} from '../types';
 
 /**
  * Normalize user configuration into a config array and apply built-in
@@ -22,7 +22,7 @@ export function defineConfig(config: Config | Config[]): Config[] {
     return {
       output: 'src/api',
       client,
-      ...item
+      ...item,
     };
   });
   return final;
@@ -73,10 +73,10 @@ export class FileData<T = any> {
  * @param [requestData] Request data to parse
  * @returns Object containing normal data (data) and file data (fileData), when data and fileData are empty objects, it means no such data exists
  */
-export function parseRequestData(requestData?: any): { data: any; fileData: any } {
+export function parseRequestData(requestData?: any): {data: any; fileData: any} {
   const result = {
     data: {} as any,
-    fileData: {} as any
+    fileData: {} as any,
   };
   /* istanbul ignore else */
   if (requestData != null) {
@@ -100,7 +100,7 @@ export function parseRequestData(requestData?: any): { data: any; fileData: any 
  */
 export function prepare(requestConfig: RequestConfig, requestData: any): RequestFunctionParams {
   let requestPath: string = requestConfig.path;
-  const { data, fileData } = parseRequestData(requestData);
+  const {data, fileData} = parseRequestData(requestData);
   const dataIsObject = data != null && typeof data === 'object' && !Array.isArray(data);
   if (dataIsObject) {
     // Replace path parameters
@@ -136,7 +136,7 @@ export function prepare(requestConfig: RequestConfig, requestData: any): Request
   // All data
   const allData = {
     ...(dataIsObject ? data : {}),
-    ...fileData
+    ...fileData,
   };
 
   // Get form data
@@ -176,7 +176,7 @@ export function prepare(requestConfig: RequestConfig, requestData: any): Request
     hasFileData: fileData && Object.keys(fileData).length > 0,
     fileData: fileData,
     allData: allData,
-    getFormData: getFormData
+    getFormData: getFormData,
   };
 }
 
@@ -194,4 +194,3 @@ export const asyncFnArrayOrderRun = async <T = any>(fns: (() => Promise<T>)[], r
   }
   return results || [];
 };
-

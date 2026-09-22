@@ -15,9 +15,9 @@ type JsonSchema = Record<string, any>;
 
 interface ToJsonSchemaOptions {
   required?: boolean;
-  arrays?: { mode?: 'first' | 'all' | 'uniform' | 'tuple' };
-  objects?: { additionalProperties?: boolean };
-  strings?: { detectFormat?: boolean };
+  arrays?: {mode?: 'first' | 'all' | 'uniform' | 'tuple'};
+  objects?: {additionalProperties?: boolean};
+  strings?: {detectFormat?: boolean};
   postProcessFnc?: (type: string, schema: JsonSchema, value: any, defaultFn: () => JsonSchema) => JsonSchema;
 }
 
@@ -44,7 +44,7 @@ function getSchema(value: any, options: ToJsonSchemaOptions): JsonSchema {
 
   switch (type) {
     case 'object': {
-      schema = { type: 'object' };
+      schema = {type: 'object'};
       const keys = Object.keys(value);
       if (keys.length > 0) {
         schema.properties = keys.reduce<Record<string, JsonSchema>>((acc, key) => {
@@ -58,17 +58,17 @@ function getSchema(value: any, options: ToJsonSchemaOptions): JsonSchema {
       break;
     }
     case 'array': {
-      schema = { type: 'array' };
+      schema = {type: 'array'};
       if (value.length > 0 && options.arrays?.mode === 'first') {
         schema.items = getSchema(value[0], options);
       }
       break;
     }
     case 'string':
-      schema = { type: 'string' };
+      schema = {type: 'string'};
       break;
     default:
-      schema = { type };
+      schema = {type};
   }
 
   // postProcessFnc replaces the default common post-processor.

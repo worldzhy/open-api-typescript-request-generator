@@ -1,10 +1,10 @@
 import JSON5 from 'json5';
 import Mock from 'mockjs';
 import toJsonSchema from './toJsonSchema';
-import { castArray, forOwn, isArray, isEmpty, isObject } from './vtilsLite';
-import { compile } from 'json-schema-to-typescript';
-import type { Defined } from './vtilsLite';
-import { format as prettierFormat, type Options as PrettierOptions } from 'prettier';
+import {castArray, forOwn, isArray, isEmpty, isObject} from './vtilsLite';
+import {compile} from 'json-schema-to-typescript';
+import type {Defined} from './vtilsLite';
+import {format as prettierFormat, type Options as PrettierOptions} from 'prettier';
 import {
   Interface,
   PropDefinition,
@@ -12,9 +12,9 @@ import {
   RequestBodyType,
   RequestFormItemType,
   Required,
-  ResponseBodyType
+  ResponseBodyType,
 } from '../types';
-import { JSONSchema4, JSONSchema4TypeName } from 'json-schema';
+import {JSONSchema4, JSONSchema4TypeName} from 'json-schema';
 
 /**
  * Uppercase the first character of a string, leaving the rest untouched.
@@ -84,7 +84,7 @@ export function processJsonSchema<T extends JSONSchema4>(jsonSchema: T): T {
       type =
         (
           {
-            int: 'integer'
+            int: 'integer',
           } as Record<string, JSONSchema4TypeName>
         )[type] || type;
       return type;
@@ -159,20 +159,20 @@ function jsonToJsonSchema(json: object): JSONSchema4 {
   const schema = toJsonSchema(json, {
     required: false,
     arrays: {
-      mode: 'first'
+      mode: 'first',
     },
     objects: {
-      additionalProperties: false
+      additionalProperties: false,
     },
     strings: {
-      detectFormat: false
+      detectFormat: false,
     },
     postProcessFnc: (type, schema, value) => {
       if (!schema.description && !!value && type !== 'object') {
         schema.description = JSON.stringify(value);
       }
       return schema;
-    }
+    },
   });
   delete schema.description;
   return processJsonSchema(schema as any);
@@ -212,13 +212,13 @@ function propDefinitionsToJsonSchema(propDefinitions: PropDefinitions): JSONSche
         // to the generator-internal `FileData` class. Non-file fields with
         // an enum constraint emit a literal union.
         ...(prop.type === ('file' as any)
-          ? { tsType: prop.isArray ? 'File[]' : 'File' }
+          ? {tsType: prop.isArray ? 'File[]' : 'File'}
           : Array.isArray(prop.enum) && prop.enum.length
-            ? { enum: prop.enum }
-            : {})
+            ? {enum: prop.enum}
+            : {}),
       };
       return res;
-    }, {})
+    }, {}),
   });
 }
 
@@ -235,7 +235,7 @@ function getPrettier(): PrettierOptions {
     trailingComma: 'all',
     bracketSpacing: false,
     endOfLine: 'lf',
-    parser: 'babel-ts'
+    parser: 'babel-ts',
   };
 }
 
@@ -262,7 +262,7 @@ export function preprocessSchema(schema: JSONSchema4): JSONSchema4 {
     return schema.map(preprocessSchema);
   }
 
-  const processed = { ...schema };
+  const processed = {...schema};
 
   // Drop empty enum arrays (a type with no values produces invalid output).
   if (processed.enum && Array.isArray(processed.enum) && processed.enum.length === 0) {
@@ -412,7 +412,7 @@ export async function jsonSchemaToTsCode(jsonSchema: JSONSchema4, typeName: stri
   const code = await compile(jsonSchema, fakeTypeName, {
     bannerComment: '',
     additionalProperties: false,
-    declareExternallyReferenced: false
+    declareExternallyReferenced: false,
   });
 
   delete jsonSchema.id;
@@ -433,8 +433,8 @@ export function getRequestDataJsonSchema(interfaceInfo: Interface): JSONSchema4 
           // Carry multi-file and enum markers from the OAS3 multipart schema
           // expansion so propDefinitionsToJsonSchema can emit `File[]` and
           // literal unions instead of collapsing every field to `string`.
-          ...(item.isArray ? { isArray: true } : {}),
-          ...(Array.isArray(item.enum) && item.enum.length ? { enum: item.enum } : {})
+          ...(item.isArray ? {isArray: true} : {}),
+          ...(Array.isArray(item.enum) && item.enum.length ? {enum: item.enum} : {}),
         }))
       );
       break;
@@ -476,18 +476,18 @@ export function getRequestDataJsonSchema(interfaceInfo: Interface): JSONSchema4 
         name: item.name,
         required: item.required === Required.true,
         type: item.type || 'any', // `object` resolves to `{}`, which causes declaration issues, so strip it for now
-        comment: item.desc
+        comment: item.desc,
       }))
     );
     /* istanbul ignore else */
     if (jsonSchema) {
       jsonSchema.properties = {
         ...jsonSchema.properties,
-        ...queryJsonSchema.properties
+        ...queryJsonSchema.properties,
       };
       jsonSchema.required = [
         ...((jsonSchema.required as string[]) || []),
-        ...((queryJsonSchema.required as string[]) || [])
+        ...((queryJsonSchema.required as string[]) || []),
       ];
     } else {
       jsonSchema = queryJsonSchema;
@@ -500,18 +500,18 @@ export function getRequestDataJsonSchema(interfaceInfo: Interface): JSONSchema4 
         name: item.name,
         required: true,
         type: item.type || 'string',
-        comment: item.desc
+        comment: item.desc,
       }))
     );
     /* istanbul ignore else */
     if (jsonSchema) {
       jsonSchema.properties = {
         ...jsonSchema.properties,
-        ...paramsJsonSchema.properties
+        ...paramsJsonSchema.properties,
       };
       jsonSchema.required = [
         ...((jsonSchema.required as string[]) || []),
-        ...((paramsJsonSchema.required as string[]) || [])
+        ...((paramsJsonSchema.required as string[]) || []),
       ];
     } else {
       jsonSchema = paramsJsonSchema;
@@ -533,7 +533,7 @@ export function getResponseDataJsonSchema(interfaceInfo: Interface): JSONSchema4
       }
       break;
     default:
-      jsonSchema = { __is_any__: true };
+      jsonSchema = {__is_any__: true};
       break;
   }
 

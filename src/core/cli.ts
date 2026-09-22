@@ -1,17 +1,17 @@
-import { register } from 'tsx/cjs/api';
+import {register} from 'tsx/cjs/api';
 import fs from 'fs-extra';
 import path from 'path';
 import prompt from 'prompts';
 import yargs from 'yargs';
-import { Config } from '../types';
-import { dedent } from '../utils/vtilsLite';
-import { Generator } from './generator';
+import {Config} from '../types';
+import {dedent} from '../utils/vtilsLite';
+import {Generator} from './generator';
 import yargsParser from 'yargs-parser';
 import chalk from 'chalk';
 import * as conso from '../utils/console';
-import { formatContent } from '../utils/utils';
-import { spinnerInstance } from '../utils/spinner';
-import { asyncFnArrayOrderRun, defineConfig } from '../utils/helpers';
+import {formatContent} from '../utils/utils';
+import {spinnerInstance} from '../utils/spinner';
+import {asyncFnArrayOrderRun, defineConfig} from '../utils/helpers';
 
 // Register the tsx loader so apits.config.ts / apits.config.local.ts can be
 // required at runtime. tsx transpiles via esbuild (no type-checking) and
@@ -39,7 +39,7 @@ const CONFIG_FILE_CANDIDATES = [
   'apits.config.local.ts',
   'apits.config.ts',
   'apits.config.local.json',
-  'apits.config.json'
+  'apits.config.json',
 ];
 
 interface DiscoveredConfig {
@@ -48,7 +48,7 @@ interface DiscoveredConfig {
 }
 
 /** Raised when neither a CLI input nor a config file can be found. */
-class NoInputError extends Error { }
+class NoInputError extends Error {}
 
 function isHttpInput(input: string): boolean {
   return /^https?:\/\//i.test(input);
@@ -67,7 +67,7 @@ async function discoverConfigFile(cwd: string = process.cwd()): Promise<Discover
   for (const fileName of CONFIG_FILE_CANDIDATES) {
     const filePath = path.join(cwd, fileName);
     if (await fs.pathExists(filePath)) {
-      return { filePath, kind: fileName.endsWith('.json') ? 'json' : 'ts' };
+      return {filePath, kind: fileName.endsWith('.json') ? 'json' : 'ts'};
     }
   }
 
@@ -76,7 +76,7 @@ async function discoverConfigFile(cwd: string = process.cwd()): Promise<Discover
     try {
       const pkg = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
       if (pkg.apits) {
-        return { filePath: packageJsonPath, kind: 'package' };
+        return {filePath: packageJsonPath, kind: 'package'};
       }
     } catch {
       // A malformed package.json should not crash config discovery.
@@ -88,7 +88,7 @@ async function discoverConfigFile(cwd: string = process.cwd()): Promise<Discover
 
 /** Load configs from a discovered file. */
 function loadConfigFile(discovered: DiscoveredConfig): Config[] {
-  const { filePath, kind } = discovered;
+  const {filePath, kind} = discovered;
 
   if (kind === 'ts') {
     // tsx is registered at module load time.
@@ -108,7 +108,7 @@ function loadConfigFile(discovered: DiscoveredConfig): Config[] {
 function buildCliConfig(flags: GenFlags): Config {
   const config: Config = {
     input: flags.input!,
-    output: flags.output || 'src/api'
+    output: flags.output || 'src/api',
   };
   if (flags.name) {
     config.name = flags.name;
@@ -145,12 +145,12 @@ function assignUniqueNames(configs: Config[]) {
  */
 async function resolveConfigs(
   flags: GenFlags
-): Promise<{ configs: Config[]; source: 'cli' | 'file'; configFile?: string }> {
+): Promise<{configs: Config[]; source: 'cli' | 'file'; configFile?: string}> {
   // 1. Positional input — the zero-config path.
   if (flags.input) {
     const configs = [buildCliConfig(flags)];
     assignUniqueNames(configs);
-    return { configs, source: 'cli' };
+    return {configs, source: 'cli'};
   }
 
   // 2. Optional config file.
@@ -169,13 +169,13 @@ async function resolveConfigs(
     // CLI flags override config-file values.
     configs = configs.map(item => ({
       ...item,
-      ...(flags.output ? { output: flags.output } : {}),
-      ...(flags.baseUrl !== undefined ? { baseURL: flags.baseUrl } : {}),
-      ...(flags.client === false ? { client: false } : {})
+      ...(flags.output ? {output: flags.output} : {}),
+      ...(flags.baseUrl !== undefined ? {baseURL: flags.baseUrl} : {}),
+      ...(flags.client === false ? {client: false} : {}),
     }));
 
     assignUniqueNames(configs);
-    return { configs, source: 'file', configFile: discovered.filePath };
+    return {configs, source: 'file', configFile: discovered.filePath};
   }
 
   // 3. Nothing to generate from.
@@ -193,13 +193,13 @@ function printNoInputHint() {
       '     apits gen ./openapi.yaml',
       '',
       '  2. 生成配置文件（支持多服务 / 函数式定制）：',
-      '     apits init'
+      '     apits init',
     ].join('\n')
   );
 }
 
 /** Scaffold an optional apits.config.ts template. */
-export async function genConfig(prefill?: { input?: string }) {
+export async function genConfig(prefill?: {input?: string}) {
   const cwd = process.cwd();
   const configTSFile = path.join(cwd, 'apits.config.ts');
 
@@ -208,7 +208,7 @@ export async function genConfig(prefill?: { input?: string }) {
     const answers = await prompt({
       message: '是否覆盖已有配置文件?',
       name: 'override',
-      type: 'confirm'
+      type: 'confirm',
     });
     if (!answers.override) return;
   }
@@ -218,14 +218,14 @@ export async function genConfig(prefill?: { input?: string }) {
       message: '接口文档地址（URL 或本地 JSON/YAML 文件）',
       name: 'input',
       type: 'text',
-      initial: prefill?.input || ''
+      initial: prefill?.input || '',
     },
     {
       message: '生成文件名称（可留空，默认由地址推导）',
       name: 'name',
       type: 'text',
-      initial: ''
-    }
+      initial: '',
+    },
   ]);
 
   // User cancelled the questionnaire (Ctrl+C / empty input).
@@ -254,7 +254,7 @@ export async function genConfig(prefill?: { input?: string }) {
 }
 
 async function startGenerate(config: Config, index = 0) {
-  const { output: outputDir } = config;
+  const {output: outputDir} = config;
 
   const label = chalk.green(`${config.input} 耗时`);
   console.time(label);
@@ -325,7 +325,7 @@ export async function start(flags: GenFlags = {}) {
   const timeLabel = chalk.green('总耗时');
   console.time(timeLabel);
 
-  let resolved: { configs: Config[]; source: 'cli' | 'file'; configFile?: string };
+  let resolved: {configs: Config[]; source: 'cli' | 'file'; configFile?: string};
   try {
     resolved = await resolveConfigs(flags);
   } catch (err) {
@@ -338,11 +338,7 @@ export async function start(flags: GenFlags = {}) {
     return;
   }
 
-  conso.tips(
-    resolved.source === 'cli'
-      ? `使用命令行输入: ${flags.input}`
-      : `发现配置文件: ${resolved.configFile}`
-  );
+  conso.tips(resolved.source === 'cli' ? `使用命令行输入: ${flags.input}` : `发现配置文件: ${resolved.configFile}`);
 
   try {
     spinnerInstance.start('正在获取数据并生成代码... \n');
@@ -379,7 +375,7 @@ function toFlags(argv: any): GenFlags {
     name: typeof argv.name === 'string' ? argv.name : undefined,
     baseUrl: typeof argv.baseUrl === 'string' ? argv.baseUrl : undefined,
     client: argv.client !== false,
-    watch: Boolean(argv.watch)
+    watch: Boolean(argv.watch),
   };
 }
 
@@ -401,32 +397,32 @@ export default class CLI {
     return y
       .positional('input', {
         type: 'string',
-        describe: 'OpenAPI 文档地址（http(s) URL 或本地 JSON/YAML 文件）'
+        describe: 'OpenAPI 文档地址（http(s) URL 或本地 JSON/YAML 文件）',
       })
       .option('output', {
         alias: 'o',
         type: 'string',
-        describe: '输出目录（默认 src/api）'
+        describe: '输出目录（默认 src/api）',
       })
       .option('name', {
         alias: 'n',
         type: 'string',
-        describe: '生成文件名称；使用配置文件时按 name 过滤'
+        describe: '生成文件名称；使用配置文件时按 name 过滤',
       })
       .option('base-url', {
         type: 'string',
-        describe: '运行时 baseURL（支持 [code]: 前缀）'
+        describe: '运行时 baseURL（支持 [code]: 前缀）',
       })
       .option('client', {
         type: 'boolean',
         default: true,
-        describe: '是否生成默认 request.ts（使用 --no-client 关闭）'
+        describe: '是否生成默认 request.ts（使用 --no-client 关闭）',
       })
       .option('watch', {
         alias: 'w',
         type: 'boolean',
         default: false,
-        describe: '监听本地文档变化并自动重新生成'
+        describe: '监听本地文档变化并自动重新生成',
       });
   }
 
@@ -443,11 +439,11 @@ export default class CLI {
           y => {
             y.positional('input', {
               type: 'string',
-              describe: '预填的接口文档地址（URL 或本地文件）'
+              describe: '预填的接口文档地址（URL 或本地文件）',
             });
           },
           async (argv: any) => {
-            await genConfig({ input: typeof argv.input === 'string' ? argv.input : undefined });
+            await genConfig({input: typeof argv.input === 'string' ? argv.input : undefined});
           }
         )
         // `gen` is also the default command: `apits <input>` works.

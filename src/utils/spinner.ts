@@ -1,4 +1,4 @@
-import ora, { Ora } from 'ora';
+import ora, {Ora} from 'ora';
 
 class Spin {
   spinnerInstance: Ora;

@@ -5,9 +5,9 @@ import yaml from 'js-yaml';
 import JSON5 from 'json5';
 import * as conso from '../utils/console';
 import got from 'got';
-import { OpenAPIV3 } from 'openapi-types';
-import { swaggerJsonToYApiData } from '../utils/swaggerJsonToYApiData';
-import { dedent } from '../utils/vtilsLite';
+import {OpenAPIV3} from 'openapi-types';
+import {swaggerJsonToYApiData} from '../utils/swaggerJsonToYApiData';
+import {dedent} from '../utils/vtilsLite';
 import {
   Config,
   ExtendedInterface,
@@ -15,16 +15,16 @@ import {
   ApiConfig,
   SyntheticalConfig,
   RequestBodyType,
-  RequestFunctionTemplateProps
+  RequestFunctionTemplateProps,
 } from '../types';
 import {
   getRequestDataJsonSchema,
   getResponseDataJsonSchema,
   jsonSchemaToTsCode,
   formatContent,
-  topNotesContent
+  topNotesContent,
 } from '../utils/utils';
-import { getOutputFilePath } from '../utils/getOutputPath';
+import {getOutputFilePath} from '../utils/getOutputPath';
 import writeRequestClient from './writeRequestClient';
 
 interface OutputFileList {
@@ -88,10 +88,9 @@ function isDegradedRequestType(typeCode: string): boolean {
 }
 // Default request function body template.
 function defaultRequestFunctionTemplate(props: RequestFunctionTemplateProps, config?: SyntheticalConfig): string {
-  const { baseURL, requestFunctionName, requestDataTypeName, responseDataTypeName, extendedInterfaceInfo } = props;
-  const { req_params, req_query, req_body_type, req_body_multipart, req_body_form } = extendedInterfaceInfo;
-  const hasData =
-    req_params.length || req_query.length || (Array.isArray(req_body_form) && req_body_form.length);
+  const {baseURL, requestFunctionName, requestDataTypeName, responseDataTypeName, extendedInterfaceInfo} = props;
+  const {req_params, req_query, req_body_type, req_body_multipart, req_body_form} = extendedInterfaceInfo;
+  const hasData = req_params.length || req_query.length || (Array.isArray(req_body_form) && req_body_form.length);
   const method = extendedInterfaceInfo.method.toLowerCase();
   let finalBaseUrl = '';
   if (baseURL?.match(/^\[code\]:/)) {
@@ -118,8 +117,9 @@ function defaultRequestFunctionTemplate(props: RequestFunctionTemplateProps, con
     : '';
   const dataExpr = isForm ? 'data: form' : getDataKeySetStr(method);
 
-  return `export const ${requestFunctionName} = (data${hasData ? '' : '?'
-    }: ${requestDataTypeName}${`,extra?:Record<string,any>`}) => {
+  return `export const ${requestFunctionName} = (data${
+    hasData ? '' : '?'
+  }: ${requestDataTypeName}${`,extra?:Record<string,any>`}) => {
     ${formBuilder}
     return request.${method}<${requestDataTypeName},${responseDataTypeName}>(${handlePathParam(
       extendedInterfaceInfo.path
@@ -180,7 +180,7 @@ export class Generator {
    */
   async loadSpec(input: string): Promise<OpenAPIV3.Document> {
     if (Generator.isHttpInput(input)) {
-      const res = await got.get(input, { responseType: 'text' });
+      const res = await got.get(input, {responseType: 'text'});
       return this.parseSpecDocument(res.body);
     }
     const filePath = path.resolve(input);
@@ -195,7 +195,7 @@ export class Generator {
   async generate(): Promise<OutputFileList> {
     const outputFileList: OutputFileList = Object.create(null);
 
-    const { input, name } = this.config;
+    const {input, name} = this.config;
     const typesName = name || Generator.deriveName(input);
     const openApiV3Json = await this.loadSpec(input);
 
@@ -207,7 +207,7 @@ export class Generator {
     const componentsCode: string[] = [];
     await Promise.all(
       Object.keys(componentsSchemas).map(async key => {
-        const code = await jsonSchemaToTsCode({ ...componentsSchemas[key], components: openApiV3Json.components }, key);
+        const code = await jsonSchemaToTsCode({...componentsSchemas[key], components: openApiV3Json.components}, key);
         componentsCode.push(code);
       })
     );
@@ -223,7 +223,7 @@ export class Generator {
       const code = await this.generateInterfaceCode(
         {
           ...this.config,
-          components: openApiV3Json.components
+          components: openApiV3Json.components,
         },
         interfaceInfo
       );
@@ -237,7 +237,7 @@ export class Generator {
         projectId: typesName,
         categoryId: typesName,
         syntheticalConfig: this.config,
-        content: categoryCode
+        content: categoryCode,
       };
     }
 
@@ -257,13 +257,12 @@ export class Generator {
 
     return Promise.all(
       Object.keys(outputFileList).map(async (outputFilePath, index) => {
-        const { content, syntheticalConfig } = outputFileList[outputFilePath];
+        const {content, syntheticalConfig} = outputFileList[outputFilePath];
 
         // Rewrite `.jsx?` extensions to `.tsx?`.
         outputFilePath = outputFilePath.replace(/\.js(x)?$/, '.ts$1');
 
-        const clientImportTemplate =
-          syntheticalConfig.clientImportTemplate || defaultClientImportTemplate;
+        const clientImportTemplate = syntheticalConfig.clientImportTemplate || defaultClientImportTemplate;
 
         // Always write the main file.
         const rawOutputContent = dedent`
@@ -294,7 +293,7 @@ export class Generator {
   async generateInterfaceCode(syntheticalConfig: SyntheticalConfig, interfaceInfo: Interface) {
     const extendedInterfaceInfo: ExtendedInterface = {
       ...interfaceInfo,
-      parsedPath: path.parse(interfaceInfo.path)
+      parsedPath: path.parse(interfaceInfo.path),
     };
     const requestFunctionName = this.requestFunctionNameGen(extendedInterfaceInfo);
     const requestDataTypeName = changeCase.pascalCase(`${requestFunctionName}Request`);
@@ -303,7 +302,7 @@ export class Generator {
     // Request parameters type.
 
     const requestDataType = await jsonSchemaToTsCode(
-      { ...requestDataJsonSchema, components: syntheticalConfig.components },
+      {...requestDataJsonSchema, components: syntheticalConfig.components},
       requestDataTypeName
     );
     // Surface request-body type degradation instead of silently shipping a
@@ -313,13 +312,13 @@ export class Generator {
     if (isDegradedRequestType(requestDataType)) {
       console.warn(
         `[apits] Request type degraded for ` +
-        `${extendedInterfaceInfo.method.toUpperCase()} ${extendedInterfaceInfo.path} — ` +
-        `check backend @Body()/@ApiBody decorator. Generated:\n${requestDataType}`
+          `${extendedInterfaceInfo.method.toUpperCase()} ${extendedInterfaceInfo.path} — ` +
+          `check backend @Body()/@ApiBody decorator. Generated:\n${requestDataType}`
       );
     }
     const responseDataJsonSchema = getResponseDataJsonSchema(extendedInterfaceInfo);
     const responseDataType = await jsonSchemaToTsCode(
-      { ...responseDataJsonSchema, components: syntheticalConfig.components },
+      {...responseDataJsonSchema, components: syntheticalConfig.components},
       responseDataTypeName
     );
 
@@ -357,15 +356,15 @@ export class Generator {
       ${dedent`
           ${genComment(title => `${title}`)}
           ${requestFunctionTemplate(
-      {
-        baseURL: baseUrl,
-        requestFunctionName,
-        requestDataTypeName,
-        responseDataTypeName,
-        extendedInterfaceInfo
-      },
-      syntheticalConfig
-    )}
+            {
+              baseURL: baseUrl,
+              requestFunctionName,
+              requestDataTypeName,
+              responseDataTypeName,
+              extendedInterfaceInfo,
+            },
+            syntheticalConfig
+          )}
         `}
     `;
 
