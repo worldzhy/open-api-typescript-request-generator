@@ -1,9 +1,9 @@
 import dayjs from 'dayjs';
-import { Category, Interface } from '../types';
-import { each, find } from './vtilsLite';
-import { OpenAPIV2 as SwaggerType } from 'openapi-types';
+import {Category, Interface} from '../types';
+import {each, find} from './vtilsLite';
+import {OpenAPIV2 as SwaggerType} from 'openapi-types';
 
-let SwaggerData: { parameters?: any };
+let SwaggerData: {parameters?: any};
 let isOAS3;
 
 function handlePath(path: string) {
@@ -53,28 +53,54 @@ function openapi3Format(data) {
             type: 'object',
             name: 'body',
             in: 'body',
-            schema: jsonContent.schema
+            schema: jsonContent.schema,
           });
         } else {
           // Form-encoded bodies: expand the schema into individual formData
           // parameters so binary fields render as `file` and the request body
           // type becomes `form`. handleSwagger maps `in: 'formData'` params
           // to req_body_form, and `type: 'file'` is preserved for uploads.
-          const formContent = content['multipart/form-data'] || content['x-www-form-urlencoded'];
+          const multipartContent = content['multipart/form-data'];
+          const formContent = multipartContent || content['application/x-www-form-urlencoded'];
           if (formContent && formContent.schema) {
             const formSchema = formContent.schema;
             const required = formSchema.required || [];
             const props = formSchema.properties || {};
             Object.keys(props).forEach(function (name) {
               const prop = props[name] || {};
-              api.parameters.push({
+              // Binary arrays (`type: 'array', items: {format: 'binary'}`)
+              // describe multi-file upload fields such as `files: File[]`.
+              // Swagger 2.0 formData has no array-of-file concept, so the
+              // parameter is emitted as `type: 'file'` with an isArray marker.
+              const arrayItems = Array.isArray(prop.items) ? prop.items[0] : prop.items;
+              const isFileArray = prop.type === 'array' && arrayItems && arrayItems.format === 'binary';
+              const isFile = prop.format === 'binary' || isFileArray;
+              const formParam: Record<string, any> = {
                 name: name,
                 in: 'formData',
                 description: prop.description || '',
-                type: prop.format === 'binary' ? 'file' : prop.type || 'text',
-                required: required.indexOf(name) > -1 ? '1' : '0'
-              });
+                // Non-file fields keep their declared type; Swagger 2.0
+                // formData otherwise only supports primitives and 'file'.
+                type: isFile ? 'file' : prop.type || 'text',
+                // Keep OAS3 boolean semantics: the shared parameter loop
+                // normalizes this to the yapi '1'/'0' string. A '0' string
+                // here would be truthy and mark optional fields as required.
+                required: required.indexOf(name) > -1,
+              };
+              if (isFileArray) formParam.isArray = true;
+              if (Array.isArray(prop.enum) && prop.enum.length) formParam.enum = prop.enum;
+              api.parameters.push(formParam);
             });
+            // Carry dynamic upload fields (e.g. evidence_0, evidence_1, ...)
+            // declared via additionalProperties; their names are derived at
+            // runtime so they cannot be expanded into named formData params.
+            if (formSchema.additionalProperties && typeof formSchema.additionalProperties === 'object') {
+              api['x-form-additional-properties'] = formSchema.additionalProperties;
+            }
+            // OAS3 stores the media type in requestBody.content and has no
+            // `consumes` keyword; synthesize it so handleSwagger sets
+            // req_body_type = 'form' (and req_body_multipart accordingly).
+            api.consumes = [multipartContent ? 'multipart/form-data' : 'application/x-www-form-urlencoded'];
           }
         }
       }
@@ -86,8 +112,8 @@ function openapi3Format(data) {
 
 async function parseOpenapi(
   res
-): Promise<{ apis: Interface[]; cats: Category[]; basePath: string; swaggerData: SwaggerType.Document }> {
-  const interfaceData = { apis: [], cats: [], basePath: '', swaggerData: {} };
+): Promise<{apis: Interface[]; cats: Category[]; basePath: string; swaggerData: SwaggerType.Document}> {
+  const interfaceData = {apis: [], cats: [], basePath: '', swaggerData: {}};
   if (typeof res === 'string' && res) {
     try {
       res = JSON.parse(res);
@@ -109,7 +135,7 @@ async function parseOpenapi(
     res.tags.forEach(tag => {
       interfaceData.cats.push({
         name: tag.name,
-        desc: tag.description
+        desc: tag.description,
       });
     });
   } else {
@@ -130,7 +156,7 @@ async function parseOpenapi(
             if (res.tags.length === 0) {
               interfaceData.cats.push({
                 name: data.catname,
-                desc: data.catname
+                desc: data.catname,
               });
             }
           }
@@ -151,7 +177,7 @@ async function parseOpenapi(
     });
   });
 
-  return interfaceData as { apis: Interface[]; cats: Category[]; basePath: string; swaggerData: SwaggerType.Document };
+  return interfaceData as {apis: Interface[]; cats: Category[]; basePath: string; swaggerData: SwaggerType.Document};
 }
 
 function handleSwagger(data, originTags = []) {
@@ -206,6 +232,7 @@ function handleSwagger(data, originTags = []) {
       data.consumes.indexOf('multipart/form-data') > -1
     ) {
       api.req_body_type = 'form';
+      api.req_body_multipart = data.consumes.indexOf('multipart/form-data') > -1;
     } else if (data.consumes.indexOf('application/json') > -1) {
       api.req_body_type = 'json';
       api.req_body_is_json_schema = true;
@@ -245,15 +272,15 @@ function handleSwagger(data, originTags = []) {
     data.parameters.forEach(param => {
       if (param && typeof param === 'object' && param.$ref) {
         param = simpleJsonPathParse(param.$ref, {
-          parameters: SwaggerData.parameters
+          parameters: SwaggerData.parameters,
         });
       }
-      const defaultParam = {
+      const defaultParam: Record<string, any> = {
         name: param.name,
         desc: param.description,
         type: param.type || param.schema.type,
         required: param.required ? '1' : '0',
-        example: ''
+        example: '',
       };
 
       if (param.in) {
@@ -269,6 +296,10 @@ function handleSwagger(data, originTags = []) {
             break;
           case 'formData':
             defaultParam.type = param.type === 'file' ? 'file' : 'text';
+            // Preserve multi-file and enum markers produced by the OAS3
+            // multipart schema expansion in openapi3Format.
+            if (param.isArray === true) defaultParam.isArray = true;
+            if (Array.isArray(param.enum) && param.enum.length) defaultParam.enum = param.enum;
             if (param.example) {
               defaultParam.example = param.example;
             }
@@ -284,6 +315,12 @@ function handleSwagger(data, originTags = []) {
         api.req_query.push(defaultParam);
       }
     });
+  }
+
+  // Dynamic multipart fields (schema `additionalProperties`), e.g.
+  // evidence_0 / evidence_1 upload slots with runtime-derived names.
+  if (data['x-form-additional-properties']) {
+    api.req_body_additional = data['x-form-additional-properties'];
   }
 
   return api;
@@ -345,8 +382,8 @@ export async function swaggerJsonToYApiData(data: any): Promise<{
     yapiData.cats = [
       {
         name: 'default',
-        desc: 'default'
-      }
+        desc: 'default',
+      },
     ] as Category[];
     yapiData.apis.forEach(api => {
       api.catname = 'default';
@@ -361,7 +398,7 @@ export async function swaggerJsonToYApiData(data: any): Promise<{
       name: cat.name,
       desc: cat.desc,
       add_time: currentTime,
-      up_time: currentTime
+      up_time: currentTime,
     } as Category;
   });
   const interfaces = yapiData.apis.map<Interface>((api, index) => ({
@@ -371,8 +408,8 @@ export async function swaggerJsonToYApiData(data: any): Promise<{
     catid: cats.find(cat => cat.name === api.catname)?._id || -1,
     tag: api.tag || [],
     add_time: currentTime,
-    up_time: currentTime
+    up_time: currentTime,
   }));
 
-  return { interfaces };
+  return {interfaces};
 }

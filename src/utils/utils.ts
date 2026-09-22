@@ -4,7 +4,6 @@ import toJsonSchema from './toJsonSchema';
 import { castArray, forOwn, isArray, isEmpty, isObject } from './vtilsLite';
 import { compile } from 'json-schema-to-typescript';
 import type { Defined } from './vtilsLite';
-import { FileData } from './helpers';
 import { format as prettierFormat, type Options as PrettierOptions } from 'prettier';
 import {
   Interface,
@@ -208,7 +207,15 @@ function propDefinitionsToJsonSchema(propDefinitions: PropDefinitions): JSONSche
       res[prop.name] = {
         type: prop.type,
         description: prop.comment,
-        ...(prop.type === ('file' as any) ? { tsType: FileData.name } : {})
+        // File fields emit the native DOM `File` type (or `File[]` for
+        // multi-file arrays) so generated code has no dangling reference
+        // to the generator-internal `FileData` class. Non-file fields with
+        // an enum constraint emit a literal union.
+        ...(prop.type === ('file' as any)
+          ? { tsType: prop.isArray ? 'File[]' : 'File' }
+          : Array.isArray(prop.enum) && prop.enum.length
+            ? { enum: prop.enum }
+            : {})
       };
       return res;
     }, {})
@@ -422,7 +429,12 @@ export function getRequestDataJsonSchema(interfaceInfo: Interface): JSONSchema4 
           name: item.name,
           required: item.required === Required.true,
           type: (item.type === RequestFormItemType.file ? 'file' : 'string') as any,
-          comment: item.desc
+          comment: item.desc,
+          // Carry multi-file and enum markers from the OAS3 multipart schema
+          // expansion so propDefinitionsToJsonSchema can emit `File[]` and
+          // literal unions instead of collapsing every field to `string`.
+          ...(item.isArray ? { isArray: true } : {}),
+          ...(Array.isArray(item.enum) && item.enum.length ? { enum: item.enum } : {})
         }))
       );
       break;

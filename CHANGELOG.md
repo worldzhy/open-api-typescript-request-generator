@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.0.7] - 2026-09-22
+
+> End-to-end multipart/form-data support: OAS3 form bodies now produce correct types **and** a runtime FormData builder in the generated request function.
+
+### Bug Fixes
+
+- **Multipart form-data was silently broken end-to-end** (G-4). The 0.0.6 partial fix expanded the multipart schema into `formData` parameters but the pipeline dropped the body type at three points:
+  1. **`consumes` not synthesized for OAS3 operations** — `openapi3Format` now sets `api.consumes = ['multipart/form-data' | 'application/x-www-form-urlencoded']` so `handleSwagger` classifies the body as `req_body_type = 'form'` (was stuck at `'raw'`, making the form branch in `utils.ts` unreachable).
+  2. **`application/x-www-form-urlencoded` content key never matched** — the lookup used the short form `content['x-www-form-urlencoded']` but the standard MIME type is `application/x-www-form-urlencoded`; url-encoded bodies were silently ignored.
+  3. **Multi-file arrays not recognized** — `type: 'array', items: { format: 'binary' }` (e.g. `files: File[]`) is now detected and marked with `isArray`, and the marker is propagated through `getRequestDataJsonSchema` → `propDefinitionsToJsonSchema` so the type renders as `File[]` instead of `File`.
+  4. **Generated function sent JSON for all POSTs** — `defaultRequestFunctionTemplate` now builds a `FormData` (multipart) or `URLSearchParams` (url-encoded) at runtime from the request data, so the underlying client (axios / fetch) auto-sets the correct `Content-Type` with boundary. Without this, form bodies were JSON-stringified and the backend never received the files.
+
+### Features
+
+- **Native `File` type in generated form types**: file fields now emit the DOM `File` type (or `File[]` for arrays) instead of the generator-internal `FileData` class, which was never imported by generated code and produced a dangling reference. The `FileData` import has been removed from `utils.ts`.
+- **Enum form fields render as literal unions**: form fields with an `enum` constraint (e.g. `kind: 'admin' | 'user'`) now preserve the enum through the type pipeline instead of collapsing to `string`.
+- **`req_body_form` makes `data` required**: generated form request functions now require the `data` argument (previously optional when the endpoint had no path/query params, which would cause a runtime error in the FormData builder).
+
+### Tests
+
+- **G-4 regression tests** added (`test/index.ts`): covers `swaggerJsonToYApiData` interface metadata (multipart + url-encoded), `getRequestDataJsonSchema` tsType (`File` / `File[]`), compiled type assertions, enum literal unions, and `Generator.generate()` output containing `new FormData()` / `new URLSearchParams()` / `data: form`.
+
+---
+
 ## [0.0.6] - 2026-09-21
 
 > Zero-config CLI, optional config file, `src/` restructure, and dependency-tree cleanup. Contains breaking config renames — see below.

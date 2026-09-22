@@ -4,13 +4,19 @@
  * The pre-existing test files (gen.ts / requestTest.ts / json-schema-to-typescript.ts
  * / to-json-schema.ts) are demo drivers that fetch a live spec and run the
  * generator without any assertions, so regressions pass silently. This file
- * pins the three P0 generator fixes (G-1 nullable, G-2 path-param literal,
- * G-3 degenerate body) so future edits cannot quietly reintroduce them.
+ * pins the P0 generator fixes (G-1 nullable, G-2 path-param literal,
+ * G-3 degenerate body, G-4 multipart form-data) so future edits cannot
+ * quietly reintroduce them.
  *
  * Run with: `npm test` (tsx watch test/index.ts).
  */
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { processJsonSchema, jsonSchemaToTsCode, getRequestDataJsonSchema } from '../src/utils/utils';
+import { swaggerJsonToYApiData } from '../src/utils/swaggerJsonToYApiData';
+import { Generator } from '../src/core/generator';
 import { RequestBodyType, Required } from '../src/types';
 
 async function main(): Promise<void> {
@@ -96,6 +102,193 @@ async function main(): Promise<void> {
   assert.ok(!/&\s*string/.test(degenerateCode), `G-3: no '& string' in compiled type. Got: ${degenerateCode}`);
 
   console.log('\n  ✓ all generator regression tests passed (G-1, G-2, G-3)\n');
+
+  // ---------------------------------------------------------------------------
+  // G-4: OAS3 multipart/form-data endpoints must be converted end-to-end:
+  //   1. openapi3Format synthesizes `consumes` so handleSwagger sets
+  //      req_body_type='form' + req_body_multipart=true.
+  //   2. Binary arrays (type:'array', items:{format:'binary'}) are detected
+  //      and marked with isArray so the type renders as File[] not File.
+  //   3. The generated request function builds FormData at runtime instead
+  //      of passing a raw object that the client would JSON-stringify.
+  // ---------------------------------------------------------------------------
+
+  const multipartSpec = {
+    openapi: '3.0.0',
+    info: { title: 'G-4 Test', version: '1.0.0' },
+    paths: {
+      '/upload': {
+        post: {
+          summary: 'Upload files',
+          tags: ['upload'],
+          requestBody: {
+            content: {
+              'multipart/form-data': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    file: { type: 'string', format: 'binary', description: 'single file' },
+                    files: {
+                      type: 'array',
+                      items: { type: 'string', format: 'binary' },
+                      description: 'multi-file array'
+                    },
+                    name: { type: 'string', description: 'label' }
+                  },
+                  required: ['file']
+                }
+              }
+            }
+          },
+          responses: { '200': { description: 'ok' } }
+        }
+      },
+      '/profile': {
+        post: {
+          summary: 'Update profile',
+          tags: ['profile'],
+          requestBody: {
+            content: {
+              'application/x-www-form-urlencoded': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    nickname: { type: 'string' },
+                    kind: { type: 'string', enum: ['admin', 'user'] }
+                  }
+                }
+              }
+            }
+          },
+          responses: { '200': { description: 'ok' } }
+        }
+      }
+    }
+  };
+
+  // --- G-4.1: swaggerJsonToYApiData produces correct interface metadata ---
+
+  const { interfaces: g4Interfaces } = await swaggerJsonToYApiData(multipartSpec);
+  const uploadIface = g4Interfaces.find(i => i.path === '/upload')!;
+  assert.ok(uploadIface, 'G-4: upload interface should exist');
+  assert.strictEqual(uploadIface.req_body_type, 'form', 'G-4: req_body_type should be form');
+  assert.strictEqual(uploadIface.req_body_multipart, true, 'G-4: req_body_multipart should be true');
+
+  const fileField = uploadIface.req_body_form.find(f => f.name === 'file');
+  assert.ok(fileField, 'G-4: file field should exist');
+  assert.strictEqual(fileField.type, 'file', 'G-4: single binary field -> type file');
+  assert.strictEqual(fileField.isArray, undefined, 'G-4: single file should not have isArray');
+
+  const filesField = uploadIface.req_body_form.find(f => f.name === 'files');
+  assert.ok(filesField, 'G-4: files field should exist');
+  assert.strictEqual(filesField.type, 'file', 'G-4: binary array field -> type file');
+  assert.strictEqual(filesField.isArray, true, 'G-4: multi-file array should have isArray=true');
+
+  const nameField = uploadIface.req_body_form.find(f => f.name === 'name');
+  assert.ok(nameField, 'G-4: name field should exist');
+  assert.strictEqual(nameField.type, 'text', 'G-4: string field -> type text');
+
+  // Required flags: only fields listed in the OAS3 schema.required are '1';
+  // everything else must be '0' (optional). Regression guard: a truthy '0'
+  // string would mark optional form fields as required in generated types.
+  assert.strictEqual(fileField.required, '1', 'G-4: required field -> req_body_form required "1"');
+  assert.strictEqual(filesField.required, '0', 'G-4: optional field -> req_body_form required "0"');
+  assert.strictEqual(nameField.required, '0', 'G-4: optional field -> req_body_form required "0"');
+
+  // --- G-4.2: url-encoded endpoint sets req_body_type=form, multipart=false ---
+
+  const profileIface = g4Interfaces.find(i => i.path === '/profile')!;
+  assert.strictEqual(profileIface.req_body_type, 'form', 'G-4: urlencoded -> req_body_type form');
+  assert.strictEqual(profileIface.req_body_multipart, false, 'G-4: urlencoded -> multipart false');
+
+  // --- G-4.3: getRequestDataJsonSchema emits File / File[] tsType ---
+
+  const uploadSchema = getRequestDataJsonSchema(uploadIface);
+  assert.ok(uploadSchema.properties, 'G-4: schema should have properties');
+  assert.strictEqual(
+    uploadSchema.properties!.file.tsType,
+    'File',
+    'G-4: single file -> tsType File'
+  );
+  assert.strictEqual(
+    uploadSchema.properties!.files.tsType,
+    'File[]',
+    'G-4: multi-file array -> tsType File[]'
+  );
+
+  // --- G-4.4: compiled type contains `file: File` and `files: File[]` ---
+
+  const uploadTypeCode = await jsonSchemaToTsCode(uploadSchema, 'UploadRequest');
+  assert.match(uploadTypeCode, /file:\s*File/, `G-4: type should contain file: File. Got: ${uploadTypeCode}`);
+  assert.match(
+    uploadTypeCode,
+    /files\?:\s*File\[\]/,
+    `G-4: optional multi-file field should render as files?: File[]. Got: ${uploadTypeCode}`
+  );
+  assert.match(
+    uploadTypeCode,
+    /name\?:\s*string/,
+    `G-4: optional form field should render as name?: string. Got: ${uploadTypeCode}`
+  );
+  assert.doesNotMatch(
+    uploadTypeCode,
+    /(?<!\?)name:\s*string/,
+    `G-4: optional form field must not render as required name: string. Got: ${uploadTypeCode}`
+  );
+
+  // --- G-4.5: enum form fields render as literal unions ---
+
+  const profileSchema = getRequestDataJsonSchema(profileIface);
+  const profileTypeCode = await jsonSchemaToTsCode(profileSchema, 'UpdateProfileRequest');
+  assert.match(
+    profileTypeCode,
+    /["']admin["']\s*\|\s*["']user["']/,
+    `G-4: enum form field should render as literal union. Got: ${profileTypeCode}`
+  );
+
+  // --- G-4.6: generated function body builds FormData for multipart ---
+
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'apits-g4-'));
+  const specPath = path.join(tmpDir, 'spec.json');
+  await fs.writeFile(specPath, JSON.stringify(multipartSpec));
+
+  const generator = new Generator({
+    input: specPath,
+    output: path.join(tmpDir, 'out'),
+    name: 'g4test',
+    client: false
+  });
+  const output = await generator.generate();
+  const allContent = Object.values(output).map(f => f.content.join('\n')).join('\n');
+
+  assert.match(
+    allContent,
+    /new FormData\(\)/,
+    'G-4: multipart endpoint should build FormData'
+  );
+  assert.match(
+    allContent,
+    /data:\s*form/,
+    'G-4: multipart endpoint should pass form as data'
+  );
+  assert.match(
+    allContent,
+    /new URLSearchParams\(\)/,
+    'G-4: urlencoded endpoint should build URLSearchParams'
+  );
+  // Ensure non-form content was not broken: the form builder line should
+  // not appear for endpoints without a form body (there are none in this
+  // spec, so just verify the FormData line exists exactly once).
+  assert.strictEqual(
+    (allContent.match(/new FormData\(\)/g) || []).length,
+    1,
+    'G-4: exactly one FormData constructor for one multipart endpoint'
+  );
+
+  // Clean up temp files.
+  await fs.rm(tmpDir, { recursive: true, force: true });
+
+  console.log('\n  ✓ all generator regression tests passed (G-1, G-2, G-3, G-4)\n');
 }
 
 main().catch(err => {

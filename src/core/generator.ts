@@ -14,6 +14,7 @@ import {
   Interface,
   ApiConfig,
   SyntheticalConfig,
+  RequestBodyType,
   RequestFunctionTemplateProps
 } from '../types';
 import {
@@ -88,8 +89,9 @@ function isDegradedRequestType(typeCode: string): boolean {
 // Default request function body template.
 function defaultRequestFunctionTemplate(props: RequestFunctionTemplateProps, config?: SyntheticalConfig): string {
   const { baseURL, requestFunctionName, requestDataTypeName, responseDataTypeName, extendedInterfaceInfo } = props;
-  const { req_params, req_query } = extendedInterfaceInfo;
-  const hasData = req_params.length || req_query.length;
+  const { req_params, req_query, req_body_type, req_body_multipart, req_body_form } = extendedInterfaceInfo;
+  const hasData =
+    req_params.length || req_query.length || (Array.isArray(req_body_form) && req_body_form.length);
   const method = extendedInterfaceInfo.method.toLowerCase();
   let finalBaseUrl = '';
   if (baseURL?.match(/^\[code\]:/)) {
@@ -99,12 +101,30 @@ function defaultRequestFunctionTemplate(props: RequestFunctionTemplateProps, con
   } else {
     finalBaseUrl = `"${baseURL}"`;
   }
+
+  // Form endpoints (multipart or url-encoded) must build a FormData /
+  // URLSearchParams at runtime so the underlying client (axios / fetch)
+  // auto-sets the correct Content-Type with boundary. Without this, POST
+  // form bodies are sent as JSON and the backend never receives the files.
+  const isForm = req_body_type === RequestBodyType.form;
+  const isMultipart = isForm && req_body_multipart === true;
+  const formBuilder = isForm
+    ? `const form = new ${isMultipart ? 'FormData' : 'URLSearchParams'}();
+    Object.entries(data).forEach(([k, v]) => {
+      if (v == null) return;
+      if (Array.isArray(v)) v.forEach(i => form.append(k, ${isMultipart ? 'i' : 'String(i)'}));
+      else form.append(k, ${isMultipart ? 'v' : 'String(v)'});
+    });`
+    : '';
+  const dataExpr = isForm ? 'data: form' : getDataKeySetStr(method);
+
   return `export const ${requestFunctionName} = (data${hasData ? '' : '?'
     }: ${requestDataTypeName}${`,extra?:Record<string,any>`}) => {
+    ${formBuilder}
     return request.${method}<${requestDataTypeName},${responseDataTypeName}>(${handlePathParam(
       extendedInterfaceInfo.path
     )}, {
-      ${getDataKeySetStr(method)},
+      ${dataExpr},
       ${baseURL ? `baseURL: ${finalBaseUrl},` : ''}
       ${`...extra`}
     })

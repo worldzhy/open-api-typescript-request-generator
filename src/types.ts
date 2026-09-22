@@ -110,7 +110,27 @@ export interface Interface {
     example: string;
     /** Required */
     required: Required;
+    /**
+     * Whether the field accepts multiple files (a binary array in the
+     * OpenAPI schema, e.g. `files: {type: 'array', items: {format: 'binary'}}`).
+     * Only meaningful when `type` is `file`.
+     */
+    isArray?: boolean;
+    /** Allowed literal values when the form field is an enum */
+    enum?: Array<string | number>;
   }>;
+  /**
+   * Whether the form body is `multipart/form-data` (true) or
+   * `application/x-www-form-urlencoded` (false). Only set when
+   * `req_body_type = form`.
+   */
+  req_body_multipart?: boolean;
+  /**
+   * JSON Schema fragment describing dynamic form fields (the
+   * `additionalProperties` of a multipart request schema). Used for
+   * runtime-named upload fields such as `evidence_0`, `evidence_1`, ...
+   */
+  req_body_additional?: Record<string, any>;
   /** Request content when `req_body_type = json` */
   req_body_other: string;
   /** Response data type */
@@ -389,6 +409,10 @@ export interface PropDefinition {
   type: JSONSchema4['type'];
   /** Comment */
   comment: string;
+  /** Whether the property is an array (used for multi-file upload fields) */
+  isArray?: boolean;
+  /** Allowed literal values for enum properties */
+  enum?: Array<string | number>;
 }
 
 /** Property definition list */
