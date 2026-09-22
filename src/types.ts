@@ -1,75 +1,19 @@
 export * from 'json-schema';
-import { JSONSchema4 } from 'json-schema';
-import { OpenAPIV3 } from 'openapi-types';
-import type { LiteralUnion, OmitStrict } from './utils/vtilsLite';
-import { ParsedPath } from 'path';
+import {JSONSchema4} from 'json-schema';
+import {OpenAPIV3} from 'openapi-types';
+import {ParsedPath} from 'path';
 
 /** Returns the client import snippet placed at the top of each generated file. */
 export type ClientImportTemplate = () => string;
 
-/** Project information */
-export interface Project {
-  /** ID */
-  _id: number;
-  /** Name */
-  name: string;
-  /** Description */
-  desc: string;
-  /** Base path */
-  basepath: string;
-  /** Tags */
-  tag: string[];
-  /** Environment configuration */
-  env: Array<{
-    /** Environment name */
-    name: string;
-    /** Environment domain */
-    domain: string;
-  }>;
-  /** Project token */
-  token?: string;
-  /** Category list under the project */
-  cat: Category[];
-  components?: object[];
-}
-
 /** Interface definition */
 export interface Interface {
-  /** Interface ID */
-  _id: number;
-  /** Category information (implemented by YTT) */
-  _category: OmitStrict<Category, 'list'>;
-  /** Project information (implemented by YTT) */
-  _project: Project;
   /** Interface name */
   title: string;
-  /** Status */
-  status: LiteralUnion<'done' | 'undone', string>;
-  /** Interface remarks */
-  markdown: string;
   /** Request path */
   path: string;
   /** Request method, HEAD and OPTIONS are handled like GET, others like POST */
   method: Method;
-  /** Project ID */
-  project_id: number;
-  /** Category ID */
-  catid: number;
-  /** Tag list */
-  tag: string[];
-  /** Request headers */
-  req_headers: Array<{
-    /** Name */
-    name: string;
-    /** Value */
-    value: string;
-    /** Description */
-    desc: string;
-    /** Example */
-    example: string;
-    /** Required */
-    required: Required;
-  }>;
   /** Path parameters */
   req_params: Array<{
     /** Name */
@@ -139,46 +83,15 @@ export interface Interface {
   res_body_is_json_schema: boolean;
   /** Response data */
   res_body: string;
-  /** Creation time (unix timestamp) */
-  add_time: number;
-  /** Update time (unix timestamp) */
-  up_time: number;
   [key: string]: any;
 }
 
-/** Interface basic information */
-export interface BaseInterfaceInfo {
-  edit_uid: number;
-  status: string;
-  api_opened: boolean;
-  tag: string[];
-  _id: number;
-  method: string;
-  title: string;
-  path: string;
-  project_id: number;
-  catid: number;
-  uid: number;
-  add_time: number;
-}
-
-/** Interface list */
-export type InterfaceList = Interface[];
-
 /** Category information */
 export interface Category {
-  /** ID */
-  _id: number;
   /** Category name */
   name: string;
   /** Category description */
   desc: string;
-  /** Interface list in this category */
-  list: InterfaceList;
-  /** Creation time (unix timestamp) */
-  add_time: number;
-  /** Update time (unix timestamp) */
-  up_time: number;
 }
 
 /** Request method */
@@ -189,7 +102,7 @@ export enum Method {
   DELETE = 'DELETE',
   HEAD = 'HEAD',
   OPTIONS = 'OPTIONS',
-  PATCH = 'PATCH'
+  PATCH = 'PATCH',
 }
 
 /** Required */
@@ -197,7 +110,7 @@ export enum Required {
   /** Not required */
   false = '0',
   /** Required */
-  true = '1'
+  true = '1',
 }
 
 /** Request body type */
@@ -215,7 +128,7 @@ export enum RequestBodyType {
   /** Raw data */
   raw = 'raw',
   /** No request data */
-  none = 'none'
+  none = 'none',
 }
 
 /** Request path parameter type */
@@ -223,7 +136,7 @@ export enum RequestParamType {
   /** String */
   string = 'string',
   /** Number */
-  number = 'number'
+  number = 'number',
 }
 
 /** Request query parameter type */
@@ -231,7 +144,7 @@ export enum RequestQueryType {
   /** String */
   string = 'string',
   /** Number */
-  number = 'number'
+  number = 'number',
 }
 
 /** Request form item type */
@@ -239,7 +152,7 @@ export enum RequestFormItemType {
   /** Plain text */
   text = 'text',
   /** File */
-  file = 'file'
+  file = 'file',
 }
 
 /** Response body type */
@@ -251,16 +164,13 @@ export enum ResponseBodyType {
   /** XML */
   xml = 'xml',
   /** Raw data */
-  raw = 'raw'
+  raw = 'raw',
 }
 
 /** Extended interface definition */
 export interface ExtendedInterface extends Interface {
   parsedPath: ParsedPath;
 }
-
-/** Category list, corresponding to exported json content */
-export type CategoryList = Category[];
 
 /**
  * Generator configuration for one OpenAPI source.
@@ -352,7 +262,7 @@ export interface RequestConfig<
   Path extends string = string,
   ParamName extends string = string,
   QueryName extends string = string,
-  RequestDataOptional extends boolean = boolean
+  RequestDataOptional extends boolean = boolean,
 > {
   /** Interface path, starting with `/` */
   path: Path;

@@ -15,7 +15,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {processJsonSchema, jsonSchemaToTsCode, getRequestDataJsonSchema} from '../src/utils/utils';
-import {swaggerJsonToYApiData} from '../src/utils/swaggerJsonToYApiData';
+import {openApiToInterfaces} from '../src/utils/openApiToInterfaces';
 import {Generator} from '../src/core/generator';
 import {defineConfig} from '../src/utils/helpers';
 import {RequestBodyType, Required} from '../src/types';
@@ -100,7 +100,7 @@ async function main(): Promise<void> {
 
   // ---------------------------------------------------------------------------
   // G-4: OAS3 multipart/form-data endpoints must be converted end-to-end:
-  //   1. openapi3Format synthesizes `consumes` so handleSwagger sets
+  //   1. handleRequestBody reads requestBody.content directly and sets
   //      req_body_type='form' + req_body_multipart=true.
   //   2. Binary arrays (type:'array', items:{format:'binary'}) are detected
   //      and marked with isArray so the type renders as File[] not File.
@@ -161,9 +161,8 @@ async function main(): Promise<void> {
     },
   };
 
-  // --- G-4.1: swaggerJsonToYApiData produces correct interface metadata ---
-
-  const {interfaces: g4Interfaces} = await swaggerJsonToYApiData(multipartSpec);
+  // --- G-4.1: openApiToInterfaces produces correct interface metadata ---
+  const {interfaces: g4Interfaces} = await openApiToInterfaces(multipartSpec);
   const uploadIface = g4Interfaces.find(i => i.path === '/upload')!;
   assert.ok(uploadIface, 'G-4: upload interface should exist');
   assert.strictEqual(uploadIface.req_body_type, 'form', 'G-4: req_body_type should be form');
@@ -339,7 +338,7 @@ async function main(): Promise<void> {
     },
   };
 
-  const {interfaces: p2Interfaces} = await swaggerJsonToYApiData(specWithDescriptionResponse);
+  const {interfaces: p2Interfaces} = await openApiToInterfaces(specWithDescriptionResponse);
   const textIface = p2Interfaces.find(i => i.path === '/text')!;
   assert.ok(textIface, 'P-2: text interface should exist');
   assert.strictEqual(textIface.res_body_type, 'raw', 'P-2: description-only response should be raw, not json');

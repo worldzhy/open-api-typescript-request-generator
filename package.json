@@ -1,6 +1,6 @@
 {
   "name": "open-api-typescript-request-generator",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "author": "zimv <zimudashiren@163.com>",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.mjs",
@@ -29,10 +29,8 @@
     ]
   },
   "dependencies": {
-    "@babel/runtime": "^7.29.7",
+    "chalk": "^4.1.1",
     "change-case": "^3.1.0",
-    "consola": "^2.3.0",
-    "dayjs": "^1.8.32",
     "form-data": "^3.0.0",
     "fs-extra": "^7.0.1",
     "got": "^11.5.1",
@@ -40,7 +38,7 @@
     "json-schema": "^0.3.0",
     "json-schema-to-typescript": "15.0.4",
     "json5": "^2.1.0",
-    "mockjs": "^1.0.1-beta3",
+    "openapi-types": "^7.0.1",
     "ora": "5.4.1",
     "prettier": "^3",
     "prompts": "^2.0.4",
@@ -53,15 +51,12 @@
     "@types/js-yaml": "^3.12.0",
     "@types/json-schema": "^7.0.1",
     "@types/json5": "^0.0.30",
-    "@types/mockjs": "^1.0.2",
     "@types/node": "^18.7.14",
     "@types/prompts": "^1.2.0",
     "@types/yargs": "^16.0.1",
-    "chalk": "^4.1.1",
     "eslint": "^7.16.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "father": "^4",
-    "openapi-types": "^7.0.1",
     "standard-version": "^4.4.0"
   },
   "publishConfig": {

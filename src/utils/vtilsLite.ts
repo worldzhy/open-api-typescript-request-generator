@@ -15,26 +15,6 @@
 export type Defined<T> = Exclude<T, undefined>;
 
 /**
- * Allow a literal union while still accepting the base type, preserving
- * editor auto-completion for the literals. Mirrors vtils `LiteralUnion`.
- */
-export type LiteralUnion<LiteralType, BaseType extends string | number | bigint | boolean | symbol> =
-  LiteralType | (BaseType & Record<never, never>);
-
-/**
- * Like `Omit` but constrains `K` to keys actually present on `T`.
- * Mirrors vtils `OmitStrict`.
- */
-export type OmitStrict<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
-
-/**
- * Check whether a value is a function.
- */
-export function isFunction(value: any): value is Function {
-  return typeof value === 'function';
-}
-
-/**
  * Wrap a value in an array unless it is already an array.
  */
 export function castArray<T>(value: T | T[]): T[] {
@@ -155,6 +135,6 @@ export function dedent(literals: TemplateStringsArray, ...interpolations: any[])
   if (commonLeadingWhitespace == null) return text;
   return lines
     .slice(firstLineIndex!, lastLineIndex! + 1)
-    .map(line => line.substr(commonLeadingWhitespace!.length))
+    .map(line => line.slice(commonLeadingWhitespace!.length))
     .join('\n');
 }

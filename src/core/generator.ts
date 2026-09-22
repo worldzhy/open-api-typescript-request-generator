@@ -6,7 +6,7 @@ import JSON5 from 'json5';
 import * as conso from '../utils/console';
 import got from 'got';
 import {OpenAPIV3} from 'openapi-types';
-import {swaggerJsonToYApiData} from '../utils/swaggerJsonToYApiData';
+import {openApiToInterfaces} from '../utils/openApiToInterfaces';
 import {dedent} from '../utils/vtilsLite';
 import {
   Config,
@@ -211,7 +211,7 @@ export class Generator {
     );
 
     // Convert the OpenAPI document into the internal interface list.
-    const allApi = await swaggerJsonToYApiData(openApiV3Json);
+    const allApi = await openApiToInterfaces(openApiV3Json);
 
     let interfaceList = allApi.interfaces;
 

@@ -161,7 +161,7 @@ async function resolveConfigs(
     if (flags.name) {
       configs = configs.filter(item => item.name === flags.name);
       if (configs.length === 0) {
-        throw new Error(`未找到 name 为 ${flags.name} 的配置`);
+        throw new Error(`No config found with name: ${flags.name}`);
       }
     }
 
@@ -186,13 +186,13 @@ async function resolveConfigs(
 function printNoInputHint() {
   conso.error(
     [
-      '未找到 OpenAPI 输入。两种方式任选其一：',
+      'No OpenAPI input found. Use one of:',
       '',
-      '  1. 直接传入文档地址，无需配置文件：',
+      '  1. Pass document URL or path directly (no config file needed):',
       '     apits gen http://localhost:3041/api-json -o src/api',
       '     apits gen ./openapi.yaml',
       '',
-      '  2. 生成配置文件（支持多服务 / 函数式定制）：',
+      '  2. Generate a config file (multi-source / function-based customization):',
       '     apits init',
     ].join('\n')
   );
@@ -204,9 +204,9 @@ export async function genConfig(prefill?: {input?: string}) {
   const configTSFile = path.join(cwd, 'apits.config.ts');
 
   if (await fs.pathExists(configTSFile)) {
-    conso.tips(`检测到配置文件: ${configTSFile}`);
+    conso.tips(`Config file already exists: ${configTSFile}`);
     const answers = await prompt({
-      message: '是否覆盖已有配置文件?',
+      message: 'Overwrite existing config file?',
       name: 'override',
       type: 'confirm',
     });
@@ -215,13 +215,13 @@ export async function genConfig(prefill?: {input?: string}) {
 
   const configAnswers = await prompt([
     {
-      message: '接口文档地址（URL 或本地 JSON/YAML 文件）',
+      message: 'API document URL or local JSON/YAML file path',
       name: 'input',
       type: 'text',
       initial: prefill?.input || '',
     },
     {
-      message: '生成文件名称（可留空，默认由地址推导）',
+      message: 'Generated file name (optional, derived from input if blank)',
       name: 'name',
       type: 'text',
       initial: '',
@@ -230,7 +230,7 @@ export async function genConfig(prefill?: {input?: string}) {
 
   // User cancelled the questionnaire (Ctrl+C / empty input).
   if (!configAnswers || !configAnswers.input) {
-    return conso.tips('已取消，未写入配置文件');
+    return conso.tips('Cancelled, config file not written');
   }
 
   const nameLine = configAnswers?.name ? `  name: '${configAnswers.name}',\n` : '';
@@ -250,13 +250,13 @@ export async function genConfig(prefill?: {input?: string}) {
       }])
     `)
   );
-  conso.success('写入配置文件完毕');
+  conso.success('Config file written');
 }
 
 async function startGenerate(config: Config, index = 0) {
   const {output: outputDir} = config;
 
-  const label = chalk.green(`${config.input} 耗时`);
+  const label = chalk.green(`${config.input} elapsed`);
   console.time(label);
   spinnerInstance.start();
   const generator = new Generator(config);
@@ -264,7 +264,7 @@ async function startGenerate(config: Config, index = 0) {
   await generator.write(output);
   spinnerInstance.clear();
   conso.log(chalk.yellowBright(`\n${index + 1}.-------------------------`));
-  conso.success(`代码生成成功，文件路径：${outputDir}`);
+  conso.success(`Code generated, output: ${outputDir}`);
   console.timeEnd(label);
   conso.log(chalk.yellowBright('---------------------------\n'));
   return true;
@@ -341,7 +341,7 @@ function watchConfigs(configs: Config[]) {
 }
 
 export async function start(flags: GenFlags = {}) {
-  const timeLabel = chalk.green('总耗时');
+  const timeLabel = chalk.green('Total elapsed');
   console.time(timeLabel);
 
   let resolved: {configs: Config[]; source: 'cli' | 'file'; configFile?: string};
@@ -353,14 +353,16 @@ export async function start(flags: GenFlags = {}) {
       return;
     }
     spinnerInstance.stop();
-    conso.error(`配置解析失败: ${(err as Error).message || err}`);
+    conso.error(`Config resolution failed: ${(err as Error).message || err}`);
     return;
   }
 
-  conso.tips(resolved.source === 'cli' ? `使用命令行输入: ${flags.input}` : `发现配置文件: ${resolved.configFile}`);
+  conso.tips(
+    resolved.source === 'cli' ? `Using CLI input: ${flags.input}` : `Found config file: ${resolved.configFile}`
+  );
 
   try {
-    spinnerInstance.start('正在获取数据并生成代码... \n');
+    spinnerInstance.start('Generating code...\n');
     await runAll(resolved.configs);
     spinnerInstance.stop();
   } catch (err) {

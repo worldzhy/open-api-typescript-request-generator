@@ -4,6 +4,68 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.0.8] - 2026-09-22
+
+> Architecture cleanup: eliminated the Swagger 2.0 / YApi intermediate layers, removed dead code and dependencies, unified logging, improved type safety.
+
+### Breaking Changes
+
+- **`swaggerJsonToYApiData` → `openApiToInterfaces`**: the conversion function is renamed and its file moved from `swaggerJsonToYApiData.ts` to `openApiToInterfaces.ts`. Importers must update the path and function name.
+- **`Interface` type slimmed**: 12 YApi-era fields removed (`_id`, `_category`, `_project`, `status`, `markdown`, `project_id`, `catid`, `tag`, `req_headers`, `req_body_additional`, `add_time`, `up_time`). Code reading these fields will get `undefined`; the `[key: string]: any` index signature remains for transitional access.
+- **Dead types removed**: `Project`, `BaseInterfaceInfo`, `InterfaceList`, `CategoryList`. `Category` reduced to `{ name, desc }`.
+- **`consola` dependency removed**: `console.ts` now wraps native `console` + `chalk` instead of `consola`. Consumers importing `conso.*` are unaffected (function signatures unchanged).
+
+### Architecture
+
+- **Eliminated `openapi3Format` intermediate layer**: OAS3 `requestBody.content` and `responses.content` are now read directly — no more OAS3 → Swagger 2.0 → YApi triple conversion. New `handleRequestBody` reads OAS3 content types natively; `handleResponse` reads `res.content` media types directly instead of relying on pre-flattened `res.schema`.
+- **Module-level mutable state removed**: `let SwaggerData` / `let isOAS3` (which caused cross-spec pollution under parallel use) replaced with parameter passing.
+- **OAS3 `$ref` resolution**: `resolveRef` handles `#/components/parameters/Foo` (OAS3 format) instead of the old Swagger 2.0 `#/parameters/Foo` path.
+- **Type safety**: function signatures in `openApiToInterfaces.ts` now use `OpenAPIV3.OperationObject`, `OpenAPIV3.RequestBodyObject`, `OpenAPIV3.ResponsesObject`, `OpenAPIV3.Document` instead of `any`.
+
+### Features
+
+- **Watch mode robustness**: `fs.watch` now handles `rename` events (macOS atomic saves) and re-establishes the watcher after the file is recreated, preventing missed changes.
+- **`--client` bidirectional override**: `--client` forces `true`, `--no-client` forces `false`; both override the config file value (previously only `--no-client` worked).
+- **`writeRequestClient` type fix**: response interceptor returns `res.data` (matching the declared `RP` return type); `post`/`put`/`patch` accept `undefined` data; removed hardcoded `process.env.BASE_URL`.
+- **Response type detection**: `handleResponse` uses schema presence (not `try JSON.parse`) to determine `res_body_type`, preventing false positives from JSON-like text descriptions.
+
+### Bug Fixes
+
+- **`Generator.write` multi-file bug**: `outputContent` was accumulated across files but only written for the last one; each file now builds and writes independently.
+- **Removed `eval` for `form-data`**: direct `require('form-data')` replaces `eval('require("form-data")')`.
+
+### Tests
+
+- Added P-1 (defineConfig client inference), P-2 (schema-based response type detection), P-3 (writeRequestClient scaffold content) regression tests.
+
+### Dependency Cleanup
+
+- Removed `consola` (replaced by native `console` + `chalk`).
+- Removed `dayjs` (only used for dead `add_time`/`up_time` fields).
+- Removed `@babel/runtime` (not referenced in source; father 4 uses it internally during build only).
+- Removed `execa`, `get-port`, `signal-exit` (unused).
+- Removed 20 unused devDependencies: `@commitlint/*`, `@types/react`, `@types/signal-exit`, `@types/swagger-schema-official`, `babel-eslint`, `babel-plugin-component`, `codecov`, `debug`, `dumi`, `gh-pages`, `husky`, `jest`, `lint-staged`, `notify-dingtalk`, `semver`, `shx`, `tempy`, `typedoc`, `typescript-snapshots-plugin`.
+- Moved `chalk` from devDependencies to dependencies (used at runtime by `console.ts`).
+- Moved `openapi-types` from devDependencies to dependencies (type declarations consumed by downstream projects).
+
+### Code Cleanup
+
+- Deleted `scripts/publish/` (broken: hardcoded wrong package name, missing `inquirer`/`simple-git` deps; project already had `npm run release`).
+- Deleted `src/utils/constants.ts` (entire file dead: YApi constants, `DefaultServerUrl`, `ResponseErrorCode`).
+- Deleted `projects.json` (used old config field names, no references).
+- Deleted 4 dead test files (`requestTest.ts`, `json-schema-to-typescript.ts`, `to-json-schema.ts`, `gen.ts`).
+- Removed `Generator.disposes` / `destroy()` (declared but never populated — `destroy()` was a no-op).
+- Removed unused `vtilsLite` exports: `isFunction`, `LiteralUnion`, `OmitStrict`.
+- Fixed `substr` → `slice` (deprecated API).
+- Unified all log output to `conso.*` (replaced raw `console.error`/`console.warn`); all source comments and CLI strings converted to English.
+- `tsconfig.json`: `target` `ES5` → `ES2020`; removed `typescript-snapshots-plugin`.
+- `.eslintrc.js`: removed stale `babel-eslint` parser reference, `.js/.jsx` extensions.
+- `package.json`: `lint-staged` glob `src/*.{js,json,vue}` → `src/**/*.ts`.
+- Removed `browserslist` (Node CLI tool, not a browser target).
+- CLI class: removed unused `argvs` property and `yargs-parser` dependency.
+
+---
+
 ## [0.0.7] - 2026-09-22
 
 > End-to-end multipart/form-data support: OAS3 form bodies now produce correct types **and** a runtime FormData builder in the generated request function.

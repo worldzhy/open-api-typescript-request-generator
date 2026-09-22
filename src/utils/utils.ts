@@ -1,6 +1,3 @@
-import JSON5 from 'json5';
-import Mock from 'mockjs';
-import toJsonSchema from './toJsonSchema';
 import {castArray, forOwn, isArray, isEmpty, isObject} from './vtilsLite';
 import {compile} from 'json-schema-to-typescript';
 import type {Defined} from './vtilsLite';
@@ -147,45 +144,6 @@ export function processJsonSchema<T extends JSONSchema4>(jsonSchema: T): T {
  */
 function jsonSchemaStringToJsonSchema(str: string): JSONSchema4 {
   return processJsonSchema(JSON.parse(str));
-}
-
-/**
- * Derive a JSON Schema object from a JSON value.
- *
- * @param json JSON value
- * @returns JSON Schema object
- */
-function jsonToJsonSchema(json: object): JSONSchema4 {
-  const schema = toJsonSchema(json, {
-    required: false,
-    arrays: {
-      mode: 'first',
-    },
-    objects: {
-      additionalProperties: false,
-    },
-    strings: {
-      detectFormat: false,
-    },
-    postProcessFnc: (type, schema, value) => {
-      if (!schema.description && !!value && type !== 'object') {
-        schema.description = JSON.stringify(value);
-      }
-      return schema;
-    },
-  });
-  delete schema.description;
-  return processJsonSchema(schema as any);
-}
-
-/**
- * Derive a JSON Schema object from a mockjs template.
- *
- * @param template mockjs template
- * @returns JSON Schema object
- */
-function mockjsTemplateToJsonSchema(template: object): JSONSchema4 {
-  return processJsonSchema(Mock.toJSONSchema(template) as any);
 }
 
 /**
@@ -440,9 +398,7 @@ export function getRequestDataJsonSchema(interfaceInfo: Interface): JSONSchema4 
       break;
     case RequestBodyType.json:
       if (interfaceInfo.req_body_other) {
-        jsonSchema = interfaceInfo.req_body_is_json_schema
-          ? jsonSchemaStringToJsonSchema(interfaceInfo.req_body_other)
-          : jsonToJsonSchema(JSON5.parse(interfaceInfo.req_body_other));
+        jsonSchema = jsonSchemaStringToJsonSchema(interfaceInfo.req_body_other);
       }
       break;
     default:
@@ -527,9 +483,7 @@ export function getResponseDataJsonSchema(interfaceInfo: Interface): JSONSchema4
   switch (interfaceInfo.res_body_type) {
     case ResponseBodyType.json:
       if (interfaceInfo.res_body) {
-        jsonSchema = interfaceInfo.res_body_is_json_schema
-          ? jsonSchemaStringToJsonSchema(interfaceInfo.res_body)
-          : mockjsTemplateToJsonSchema(JSON5.parse(interfaceInfo.res_body));
+        jsonSchema = jsonSchemaStringToJsonSchema(interfaceInfo.res_body);
       }
       break;
     default:
