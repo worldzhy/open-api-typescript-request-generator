@@ -152,7 +152,8 @@ export function prepare(requestConfig: RequestConfig, requestData: any): Request
     const UniFormData: typeof FormData | undefined = useNativeFormData
       ? FormData
       : useNodeFormData
-        ? eval(`require('form-data')`)
+        ? // eslint-disable-next-line @typescript-eslint/no-var-requires
+          require('form-data')
         : undefined;
     if (!UniFormData) {
       throw new Error('FormData is not supported in the current environment');

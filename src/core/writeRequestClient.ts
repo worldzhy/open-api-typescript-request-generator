@@ -16,49 +16,45 @@ export default async function writeRequestClient(config: Config) {
   const content = `
   ${topNotesContent()}
 
-  import request,{ AxiosRequestConfig } from 'axios';  // axios version >= 0.18.1
+  import axios, { AxiosRequestConfig } from 'axios';
 
-  const instance = request.create({
+  const instance = axios.create({
     withCredentials: true,
-    baseURL: process.env.BASE_URL,
   });
 
   // Custom request interceptor.
   instance.interceptors.request.use((config) => {
-    return  {
-      ...config
-    }
+    return { ...config };
   });
 
-  // Custom response interceptor.
-  // Note: if you change the normal response structure, update the
-  // corresponding response type declarations accordingly.
+  // Custom response interceptor — return res.data so the generated request
+  // functions receive the response payload directly, matching the RP type.
   instance.interceptors.response.use((res) => {
     const { status } = res;
     if (status >= 200 && status < 300) {
-      return res;
+      return res.data;
     }
     return Promise.reject(res);
   });
 
   export default {
     get: <RQ, RP>(url: string, config?: AxiosRequestConfig) => {
-      return instance.get<RP>(url, config);
+      return instance.get<RP>(url, config) as Promise<RP>;
     },
     post: <RQ, RP>(url: string, config?: AxiosRequestConfig) => {
-      return instance.post<RP>(url, config);
+      return instance.post<RP>(url, undefined, config) as Promise<RP>;
     },
     head: <RQ, RP>(url: string, config?: AxiosRequestConfig) => {
-      return instance.head<RP>(url, config);
+      return instance.head<RP>(url, config) as Promise<RP>;
     },
     put: <RQ, RP>(url: string, config?: AxiosRequestConfig) => {
-      return instance.put<RP>(url, config);
+      return instance.put<RP>(url, undefined, config) as Promise<RP>;
     },
     patch: <RQ, RP>(url: string, config?: AxiosRequestConfig) => {
-      return instance.patch<RP>(url, config);
+      return instance.patch<RP>(url, undefined, config) as Promise<RP>;
     },
     delete: <RQ, RP>(url: string, config?: AxiosRequestConfig) => {
-      return instance.delete<RP>(url, config);
+      return instance.delete<RP>(url, config) as Promise<RP>;
     },
   };
 `;

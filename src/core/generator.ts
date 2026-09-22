@@ -135,8 +135,6 @@ export class Generator {
   /** Generator configuration. */
   private config: ApiConfig;
 
-  private disposes: Array<() => any> = [];
-
   constructor(config: Config) {
     // `config` may be an object or an array; store it as-is.
     this.config = config;
@@ -253,18 +251,21 @@ export class Generator {
 
     // Scaffold the shared request client (request.ts) when enabled.
     await writeRequestClient(config);
-    let outputContent = '';
 
+    // Each output file is built and written independently. Previously a
+    // single `outputContent` string accumulated across all files and was
+    // only flushed on the last iteration — correct for the single-file case
+    // but would concatenate every file's content into the last output when
+    // multiple files are generated.
     return Promise.all(
-      Object.keys(outputFileList).map(async (outputFilePath, index) => {
+      Object.keys(outputFileList).map(async outputFilePath => {
         const {content, syntheticalConfig} = outputFileList[outputFilePath];
 
         // Rewrite `.jsx?` extensions to `.tsx?`.
-        outputFilePath = outputFilePath.replace(/\.js(x)?$/, '.ts$1');
+        const resolvedPath = outputFilePath.replace(/\.js(x)?$/, '.ts$1');
 
         const clientImportTemplate = syntheticalConfig.clientImportTemplate || defaultClientImportTemplate;
 
-        // Always write the main file.
         const rawOutputContent = dedent`
           ${topNotesContent()}
           ${clientImportTemplate(config)}
@@ -272,10 +273,8 @@ export class Generator {
           ${content.join('\n\n').trim()}
         `;
 
-        outputContent += await formatContent(dedent`${rawOutputContent}`);
-        if (Object.keys(outputFileList).length - 1 === index) {
-          await fs.outputFile(outputFilePath, outputContent);
-        }
+        const outputContent = await formatContent(dedent`${rawOutputContent}`);
+        await fs.outputFile(resolvedPath, outputContent);
       })
     );
   }
@@ -310,7 +309,7 @@ export class Generator {
     // `@ApiBody({type: XxxDto})`, inline `@Body() body: {...}` literal, or a
     // Prisma type bound to `@Body()`.
     if (isDegradedRequestType(requestDataType)) {
-      console.warn(
+      conso.warn(
         `[apits] Request type degraded for ` +
           `${extendedInterfaceInfo.method.toUpperCase()} ${extendedInterfaceInfo.path} — ` +
           `check backend @Body()/@ApiBody decorator. Generated:\n${requestDataType}`
@@ -369,9 +368,5 @@ export class Generator {
     `;
 
     return code;
-  }
-
-  async destroy() {
-    return Promise.all(this.disposes.map(async dispose => dispose()));
   }
 }

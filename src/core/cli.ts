@@ -6,7 +6,6 @@ import yargs from 'yargs';
 import {Config} from '../types';
 import {dedent} from '../utils/vtilsLite';
 import {Generator} from './generator';
-import yargsParser from 'yargs-parser';
 import chalk from 'chalk';
 import * as conso from '../utils/console';
 import {formatContent} from '../utils/utils';
@@ -117,8 +116,8 @@ function buildCliConfig(flags: GenFlags): Config {
     config.baseURL = flags.baseUrl;
   }
   // CLI mode has no custom import template, so the scaffolded client is on
-  // unless `--no-client` was passed.
-  config.client = flags.client !== false;
+  // unless `--no-client` was passed. Defaults to true when unspecified.
+  config.client = flags.client ?? true;
   return defineConfig(config)[0];
 }
 
@@ -166,12 +165,13 @@ async function resolveConfigs(
       }
     }
 
-    // CLI flags override config-file values.
+    // CLI flags override config-file values. `--client` forces true,
+    // `--no-client` forces false; omitting the flag keeps the config value.
     configs = configs.map(item => ({
       ...item,
       ...(flags.output ? {output: flags.output} : {}),
       ...(flags.baseUrl !== undefined ? {baseURL: flags.baseUrl} : {}),
-      ...(flags.client === false ? {client: false} : {}),
+      ...(flags.client !== undefined ? {client: flags.client} : {}),
     }));
 
     assignUniqueNames(configs);
@@ -267,8 +267,6 @@ async function startGenerate(config: Config, index = 0) {
   conso.success(`代码生成成功，文件路径：${outputDir}`);
   console.timeEnd(label);
   conso.log(chalk.yellowBright('---------------------------\n'));
-  await generator.destroy();
-
   return true;
 }
 
@@ -291,34 +289,55 @@ function watchConfigs(configs: Config[]) {
   const localConfigs = configs.filter(item => !isHttpInput(item.input));
 
   if (localConfigs.length === 0) {
-    conso.tips('--watch 仅支持本地文件，远程地址已忽略监听');
+    conso.tips('--watch only supports local files; remote URLs are ignored');
     return;
   }
 
   // Simple debounce so editors that save twice only trigger one rebuild.
   const timers = new Map<string, NodeJS.Timeout>();
 
-  localConfigs.forEach((configItem, index) => {
+  localConfigs.forEach(configItem => {
     const filePath = path.resolve(configItem.input);
     fs.watch(filePath, async eventType => {
-      if (eventType !== 'change') return;
-      const oldTimer = timers.get(filePath);
-      if (oldTimer) clearTimeout(oldTimer);
-      timers.set(
-        filePath,
-        setTimeout(async () => {
-          conso.tips(`检测到文档变化，重新生成：${filePath}`);
-          try {
-            await startGenerate(configItem, index);
-          } catch (err) {
-            conso.error(`重新生成失败: ${(err as Error).message || err}`);
-          }
-        }, 200)
-      );
+      // Handle both 'change' and 'rename' — macOS atomic save (e.g. vim's
+      // write-and-rename) triggers 'rename', and the watcher may need to be
+      // re-established after the inode changes. Re-create the watcher on
+      // rename to avoid silently losing subsequent changes.
+      if (eventType === 'rename') {
+        try {
+          fs.watch(filePath, async ev => {
+            scheduleRebuild(filePath, ev);
+          });
+        } catch {
+          // File may not exist yet during the rename window; the next save
+          // will re-establish the watcher.
+        }
+      }
+      scheduleRebuild(filePath, eventType);
     });
   });
 
-  conso.tips(`已监听 ${localConfigs.length} 个本地文档，Ctrl+C 退出`);
+  function scheduleRebuild(filePath: string, eventType: string) {
+    if (eventType !== 'change' && eventType !== 'rename') return;
+    const oldTimer = timers.get(filePath);
+    if (oldTimer) clearTimeout(oldTimer);
+    timers.set(
+      filePath,
+      setTimeout(async () => {
+        const configItem = localConfigs.find(c => path.resolve(c.input) === filePath);
+        if (!configItem) return;
+        const idx = localConfigs.indexOf(configItem);
+        conso.tips(`Detected change, regenerating: ${filePath}`);
+        try {
+          await startGenerate(configItem, idx);
+        } catch (err) {
+          conso.error(`Regeneration failed: ${(err as Error).message || err}`);
+        }
+      }, 200)
+    );
+  }
+
+  conso.tips(`Watching ${localConfigs.length} local document(s), Ctrl+C to exit`);
 }
 
 export async function start(flags: GenFlags = {}) {
@@ -346,16 +365,15 @@ export async function start(flags: GenFlags = {}) {
     spinnerInstance.stop();
   } catch (err) {
     spinnerInstance.stop();
-    console.error('\n❌ 执行过程中发生错误:');
-    console.error('错误信息:', (err as Error).message || err);
+    conso.error('Execution failed:');
+    conso.error(`Error: ${(err as Error).message || err}`);
     if ((err as Error).stack) {
-      console.error('错误堆栈:');
-      console.error((err as Error).stack);
+      conso.error(`Stack: ${(err as Error).stack}`);
     }
     if ((err as any).cause) {
-      console.error('错误原因:', (err as any).cause);
+      conso.error(`Cause: ${(err as any).cause}`);
     }
-    return conso.error('代码生成失败，请查看上方错误信息');
+    return conso.error('Code generation failed, see error details above');
   }
 
   console.timeEnd(timeLabel);
@@ -374,17 +392,13 @@ function toFlags(argv: any): GenFlags {
     output: typeof argv.output === 'string' ? argv.output : undefined,
     name: typeof argv.name === 'string' ? argv.name : undefined,
     baseUrl: typeof argv.baseUrl === 'string' ? argv.baseUrl : undefined,
-    client: argv.client !== false,
+    client: typeof argv.client === 'boolean' ? argv.client : undefined,
     watch: Boolean(argv.watch),
   };
 }
 
 export default class CLI {
-  argvs: any;
-
-  run(args: any, callback?: yargs.ParseCallback) {
-    this.argvs = yargsParser(args);
-
+  run(args: string[]) {
     const cli = this.init();
 
     if (args.length === 0) {
@@ -397,32 +411,31 @@ export default class CLI {
     return y
       .positional('input', {
         type: 'string',
-        describe: 'OpenAPI 文档地址（http(s) URL 或本地 JSON/YAML 文件）',
+        describe: 'OpenAPI document URL or local JSON/YAML file path',
       })
       .option('output', {
         alias: 'o',
         type: 'string',
-        describe: '输出目录（默认 src/api）',
+        describe: 'Output directory (default: src/api)',
       })
       .option('name', {
         alias: 'n',
         type: 'string',
-        describe: '生成文件名称；使用配置文件时按 name 过滤',
+        describe: 'Generated file name; filters by name in config-file mode',
       })
       .option('base-url', {
         type: 'string',
-        describe: '运行时 baseURL（支持 [code]: 前缀）',
+        describe: 'Runtime baseURL (supports [code]: prefix for code emission)',
       })
       .option('client', {
         type: 'boolean',
-        default: true,
-        describe: '是否生成默认 request.ts（使用 --no-client 关闭）',
+        describe: 'Generate default request.ts (use --no-client to disable, --client to force-enable)',
       })
       .option('watch', {
         alias: 'w',
         type: 'boolean',
         default: false,
-        describe: '监听本地文档变化并自动重新生成',
+        describe: 'Watch local document for changes and auto-regenerate',
       });
   }
 
@@ -435,11 +448,11 @@ export default class CLI {
         // captured as the `input` positional.
         .command<any>(
           'init [input]',
-          '生成 apits.config.ts 配置模板（可选）',
+          'Scaffold an optional apits.config.ts file',
           y => {
             y.positional('input', {
               type: 'string',
-              describe: '预填的接口文档地址（URL 或本地文件）',
+              describe: 'Prefilled document URL or local file path',
             });
           },
           async (argv: any) => {
@@ -450,7 +463,7 @@ export default class CLI {
         // The default-command alias is hidden from help to keep it clean.
         .command<any>(
           'gen [input]',
-          '根据 OpenAPI 文档生成接口类型声明和请求方法',
+          'Generate TypeScript types and request functions from an OpenAPI document',
           (y: any) => this.genBuilder(y),
           (argv: any) => {
             start(toFlags(argv));

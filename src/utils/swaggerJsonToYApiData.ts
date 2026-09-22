@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import {Category, Interface} from '../types';
 import {each, find} from './vtilsLite';
+import * as conso from './console';
 import {OpenAPIV2 as SwaggerType} from 'openapi-types';
 
 let SwaggerData: {parameters?: any};
@@ -118,7 +119,7 @@ async function parseOpenapi(
     try {
       res = JSON.parse(res);
     } catch (e) {
-      console.error('json 解析出错', e.message);
+      conso.error(`Failed to parse JSON: ${e.message}`);
     }
   }
 
@@ -239,13 +240,16 @@ function handleSwagger(data, originTags = []) {
     }
   }
 
-  // Process the response body.
-  api.res_body = handleResponse(data.responses);
-  try {
-    JSON.parse(api.res_body);
+  // Process the response body. Determine the type from whether a schema
+  // was found, instead of probing the serialized string with JSON.parse
+  // (which would misclassify a plain-text description that happens to be
+  // valid JSON as a JSON schema).
+  const {body: resBody, hasSchema} = handleResponse(data.responses);
+  api.res_body = resBody;
+  if (hasSchema) {
     api.res_body_type = 'json';
     api.res_body_is_json_schema = true;
-  } catch (e) {
+  } else if (resBody) {
     api.res_body_type = 'raw';
   }
   // Process the request parameters.
@@ -336,10 +340,11 @@ function handleBodyPamras(data, api) {
   api.req_body_is_json_schema = true;
 }
 
-function handleResponse(api) {
+function handleResponse(api): {body: string; hasSchema: boolean} {
   let res_body = '';
+  let hasSchema = false;
   if (!api || typeof api !== 'object') {
-    return res_body;
+    return {body: res_body, hasSchema};
   }
   const codes = Object.keys(api);
   let curCode;
@@ -352,6 +357,7 @@ function handleResponse(api) {
     if (res && typeof res === 'object') {
       if (res.schema) {
         res_body = JSON.stringify(res.schema, null, 2);
+        hasSchema = true;
       } else if (res.description) {
         res_body = res.description;
       }
@@ -363,7 +369,7 @@ function handleResponse(api) {
   } else {
     res_body = '';
   }
-  return res_body;
+  return {body: res_body, hasSchema};
 }
 
 /**
